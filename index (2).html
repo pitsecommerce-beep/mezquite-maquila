@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Banco de pruebas Mezquite</title>
+<style>
+:root{
+  --ink:#14231f; --ink-2:#3d514b; --ink-3:#6f827c;
+  --surface:#e9edeb; --card:#ffffff; --line:#c6cfcb; --line-2:#dde3e1;
+  --orig:#1f6f6b; --maq:#5a4fcf; --warn:#a8531f;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--surface);color:var(--ink);font:400 15px/1.55 var(--sans);
+  -webkit-font-smoothing:antialiased}
+h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.011em}
+h1{font-size:25px;line-height:1.2}
+h2{font-size:18px;margin:0 0 10px}
+h3{font-size:14px;color:var(--ink-2);margin:0 0 8px}
+p{margin:0 0 10px;max-width:72ch}
+a{color:var(--orig)}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px 80px}
+
+header{border-bottom:1px solid var(--line);background:var(--card);margin-bottom:24px}
+.head-in{max-width:1180px;margin:0 auto;padding:22px 20px 18px;
+  display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;justify-content:space-between}
+.sub{color:var(--ink-3);font-size:13.5px;max-width:60ch;margin:6px 0 0}
+
+/* selector de perfil: el gesto principal de la pagina */
+.profiles{display:flex;gap:0;border:1px solid var(--ink);border-radius:2px;overflow:hidden}
+.profiles button{appearance:none;border:0;background:var(--card);color:var(--ink);
+  font:500 14px var(--sans);padding:11px 18px;cursor:pointer;position:relative}
+.profiles button+button{border-left:1px solid var(--ink)}
+.profiles button[aria-pressed="true"]{background:var(--ink);color:#fff}
+.profiles button:focus-visible{outline:2px solid var(--maq);outline-offset:-4px}
+
+/* cadena viva */
+.chain{display:flex;align-items:stretch;gap:0;overflow-x:auto;background:var(--card);
+  border:1px solid var(--line);border-radius:3px;padding:14px 4px;margin-bottom:26px}
+.node{min-width:104px;flex:1;padding:0 12px;border-left:1px solid var(--line-2);text-align:center}
+.node:first-child{border-left:0}
+.node .lab{font-size:11.5px;color:var(--ink-3);display:block;line-height:1.3;min-height:2.6em}
+.node .val{font:600 21px/1.1 var(--mono);font-variant-numeric:tabular-nums;display:block;margin-top:5px}
+.node.out .val{color:var(--accent,var(--orig))}
+
+.grid{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:24px;align-items:start}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:3px;padding:18px}
+.panel+.panel{margin-top:18px}
+
+fieldset{border:0;padding:0;margin:0 0 16px}
+legend{font:600 13px var(--sans);color:var(--ink-2);padding:0 0 8px}
+label{display:block;font-size:12.5px;color:var(--ink-2);margin:0 0 3px}
+input,select{width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:2px;
+  font:400 14px var(--mono);font-variant-numeric:tabular-nums;background:var(--card);color:var(--ink)}
+input:focus,select:focus{outline:2px solid var(--orig);outline-offset:-1px;border-color:var(--orig)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.row3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px}
+.btn{appearance:none;border:1px solid var(--ink);background:var(--ink);color:#fff;
+  font:500 13.5px var(--sans);padding:9px 14px;border-radius:2px;cursor:pointer}
+.btn.ghost{background:var(--card);color:var(--ink)}
+.btn:focus-visible{outline:2px solid var(--maq);outline-offset:2px}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--line-2)}
+th{font-weight:600;color:var(--ink-2);font-size:11.5px;text-align:right;
+  border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+tr.tot td{font-weight:600;border-top:1px solid var(--line);border-bottom:0}
+
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:16px}
+figure{margin:0;background:var(--card);border:1px solid var(--line);border-radius:3px;padding:14px}
+figcaption{font-size:12.5px;color:var(--ink-3);margin-top:8px;line-height:1.45}
+figure h3{margin-bottom:4px;color:var(--ink)}
+svg{display:block;width:100%;height:auto;max-width:100%}
+
+.note{font-size:12.5px;color:var(--ink-3);line-height:1.5}
+.tag{display:inline-block;font:500 11px var(--sans);padding:2px 7px;border-radius:2px;
+  border:1px solid var(--line);color:var(--ink-2);background:var(--surface)}
+.tag.est{border-color:var(--warn);color:var(--warn)}
+section{margin-top:30px}
+.tip{position:fixed;z-index:50;pointer-events:none;opacity:0;transition:opacity .12s;
+  background:var(--ink);color:#fff;font:400 12px/1.45 var(--sans);padding:7px 10px;
+  border-radius:3px;max-width:190px;box-shadow:0 2px 10px rgba(0,0,0,.18)}
+.tip b{font-weight:600}
+.tip .tmin{color:#b9c6c2;font-size:11px}
+.gtit{grid-column:1/-1;margin:14px 0 2px;padding-top:14px;border-top:1px solid var(--line)}
+.gtit:first-child{margin-top:0;padding-top:0;border-top:0}
+.gtit h3{font-size:15px;color:var(--ink);margin:0 0 4px}
+.gtit p{font-size:12.5px;color:var(--ink-3);margin:0;max-width:74ch;line-height:1.5}
+.fh{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
+.paso{font:600 11px var(--mono);color:var(--ink-3);border:1px solid var(--line);
+  border-radius:2px;padding:1px 5px;flex:none}
+.clase{margin-left:auto;font:500 10.5px var(--sans);padding:1px 6px;border-radius:9px;
+  flex:none;white-space:nowrap}
+.c-mod{background:var(--surface);color:var(--ink-3);border:1px solid var(--line)}
+.c-run{background:var(--bg-accent,#e7ecfb);color:var(--maq);border:1px solid var(--maq)}
+figure h3{margin:0;font-size:13.5px}
+.leg{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px}
+.leg span{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--ink-2)}
+.leg i{width:10px;height:3px;border-radius:2px;flex:none}
+svg .hit{cursor:crosshair}
+.cycle{border:1px solid var(--line);border-radius:3px;padding:14px;margin-bottom:12px;background:var(--card)}
+.cycle > summary{cursor:pointer;font-weight:600;font-size:14px;list-style:none}
+.cycle > summary::-webkit-details-marker{display:none}
+.cycle > summary::before{content:"+ ";font-family:var(--mono);color:var(--ink-3)}
+.cycle[open] > summary::before{content:"− "}
+.cycle > div{padding-top:14px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="head-in">
+    <div>
+      <h1>Banco de pruebas Mezquite</h1>
+      <p class="sub">Corre el motor comercial y el costeo de los dos perfiles con los mismos parámetros
+      medidos del simulador real, para comprobar si los resultados son comparables.</p>
+    </div>
+    <div class="profiles" role="group" aria-label="Perfil">
+      <button id="bOrig" aria-pressed="true">Caso original</button>
+      <button id="bMaq" aria-pressed="false">Mezquite Maquila</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="chain" id="chain" aria-label="Cadena de cálculo del mercado"></div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>Parámetros</h2>
+        <p class="note" id="pDesc"></p>
+        <div class="btns" style="margin-bottom:14px">
+          <button class="btn ghost" id="resetPar">Restaurar valores por omisión</button>
+        </div>
+
+        <fieldset>
+          <legend>Motor comercial</legend>
+          <div class="row">
+            <div><label for="kA">Kappa Alto</label><input id="kA" type="number" step="0.01"></div>
+            <div><label for="kB">Kappa Bajo</label><input id="kB" type="number" step="0.01"></div>
+          </div>
+          <div class="row">
+            <div><label for="pa">Coef. Presupuesto</label><input id="pa" type="number" step="0.0001"></div>
+            <div><label for="pn">Exponente</label><input id="pn" type="number" step="1"></div>
+          </div>
+          <div class="row">
+            <div><label for="beta">Beta de Producto</label><input id="beta" type="number" step="0.001"></div>
+            <div><label for="ruido">Ruido, desv.</label><input id="ruido" type="number" step="0.01"></div>
+          </div>
+          <div class="row">
+            <div><label for="escala">Escala de demanda</label><input id="escala" type="number" step="0.001"></div>
+            <div><label for="capInfo">&nbsp;</label><input id="capInfo" type="text" disabled></div>
+          </div>
+          <label for="expA">Exponentes Alto</label>
+          <input id="expA" type="text">
+          <label for="expB" style="margin-top:8px">Exponentes Bajo</label>
+          <input id="expB" type="text">
+          <p class="note" style="margin-top:6px">Orden: precio, presupuesto, promoción, publicidad, producto.</p>
+        </fieldset>
+
+        <fieldset>
+          <legend>Costos</legend>
+          <div id="costFields"></div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Plantillas</legend>
+          <div class="btns">
+            <button class="btn ghost" id="dl">Descargar plantilla</button>
+            <button class="btn ghost" id="upBtn">Cargar plantilla</button>
+            <input id="up" type="file" accept="application/json" hidden>
+          </div>
+          <p class="note" style="margin-top:8px">La plantilla trae los parámetros y las decisiones de los
+          cinco equipos en formato JSON, para editar fuera y volver a cargar.</p>
+        </fieldset>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2>Decisiones</h2>
+        <p class="note" id="decNote"></p>
+        <div id="cycles"></div>
+        <div class="btns">
+          <button class="btn" id="run">Correr la simulación</button>
+          <button class="btn ghost" id="reset">Volver a las decisiones reales</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Resultado del año</h2>
+        <div class="scroll"><table id="tRes"></table></div>
+        <p class="note" id="resNote" style="margin-top:10px"></p>
+      </div>
+    </div>
+  </div>
+
+  <section>
+    <h2>Comportamiento de los modelos</h2>
+    <p class="note" style="max-width:74ch;margin-bottom:14px">Cada gráfica traza la forma del modelo con
+    los parámetros cargados arriba. Si cambias un parámetro, la curva se redibuja.</p>
+    <div class="charts" id="charts"></div>
+  </section>
+
+  <section>
+    <h2>Comparación entre perfiles</h2>
+    <p class="note" style="max-width:74ch;margin-bottom:14px">Corre los dos perfiles con sus decisiones por
+    omisión y compara el año completo. Es la prueba de si el perfil nuevo es equivalente.</p>
+    <div class="btns" style="margin-bottom:14px">
+      <button class="btn" id="cmp">Comparar los dos perfiles</button>
+    </div>
+    <div class="panel"><div class="scroll"><table id="tCmp"></table></div>
+      <p class="note" id="cmpNote" style="margin-top:10px"></p></div>
+    <div class="charts" id="cmpChart" style="margin-top:16px"></div>
+  </section>
+
+  <section>
+    <h2>Trazabilidad</h2>
+    <div class="panel">
+      <p class="note" style="max-width:74ch">Los parámetros marcados <span class="tag est">estimado</span>
+      no aparecen en ninguna captura de la plataforma: se obtuvieron por ajuste estadístico sobre los
+      periodos 7 a 11 y tienen error residual medido. Los demás están configurados en la plataforma y son
+      dato duro.</p>
+      <div class="scroll"><table id="tTraz"></table></div>
+    </div>
+  </section>
+</div>
+
+<script>
+"use strict";
+/* ============================================================ datos medidos */
+const ZONAS_O=["Centro","Oeste","Norte","Este","Sur"];
+const ZONAS_M=["Centro","Oeste","Norte"];
+const DIST={Centro:10,Oeste:10,Norte:8,Este:7,Sur:7};
+const SEGS=["Alto","Bajo"];
+const FASES=["1.Roll-out","2.Growth","3.Maturity","4.Hypermaturity"];
+const ROT=[0.45,0.40,0.25,0.15];
+const LEAL={Alto:[0.25,0.50,0.55,0.40],Bajo:[0.25,0.40,0.30,0.20]};
+const UMBRAL={Alto:[10,55,60],Bajo:[10,40,50]};
+const MEDIOS={ // impGen, impBrand, limGen, limBrand, escala
+  "TV|Alto":[0.33,1,20,20,30.1522], "TV|Bajo":[1,0.66,20,20,13.6100],
+  "Radio|Alto":[0.33,1,200,200,7.3028], "Radio|Bajo":[1,0.8,200,200,9.0235]};
+const FG=0.6331, FB=1.0645;
+const MAXD=[9,20,11,17,4];
+const DIMS=["Sostenibilidad","Conveniencia","Rendimiento","Funcionalidades extra","Eficiencia"];
+// fase, segmento -> [deseado x5, propension x5]
+const DESEO={
+"2.Growth|Alto":[[0.4,0.5,0.7,0.6,0.4],[0.3,0.6,0.8,0.7,0.3]],
+"2.Growth|Bajo":[[0.4,0.6,0.35,0.4,0.75],[0.2,0.8,0.4,0.6,0.9]],
+"1.Roll-out|Alto":[[0.3,0.4,0.5,0.4,0.2],[0.3,0.6,0.8,0.7,0.3]],
+"1.Roll-out|Bajo":[[0.3,0.5,0.3,0.3,0.7],[0.2,0.8,0.4,0.3,0.9]],
+"3.Maturity|Alto":[[0.6,0.7,0.8,0.8,0.5],[0.8,0.5,0.9,0.9,0.3]],
+"3.Maturity|Bajo":[[0.5,0.7,0.4,0.4,0.85],[0.5,0.8,0.4,0.7,0.9]],
+"4.Hypermaturity|Alto":[[0.8,0.8,0.8,0.9,0.7],[0.8,0.5,0.9,0.9,0.3]],
+"4.Hypermaturity|Bajo":[[0.6,0.8,0.5,0.5,0.9],[0.5,0.8,0.4,0.7,0.9]]};
+const MEJORAS=[
+["Material inoxidable",15000,[1,1,0,0,1]],["Materiales reciclables",30000,[2,0,0,0,0]],
+["Consumo eléctrico reducido",30000,[1,0,0,0,1]],["Más ligero y compacto",30000,[1,1,0,0,1]],
+["Resistencia a impactos",30000,[1,1,0,0,1]],["Reducción de ruidos",45000,[0,2,0,0,0]],
+["Mayor capacidad de batería",45000,[1,1,1,0,0]],["Autolimpieza",45000,[1,1,1,0,0]],
+["Ajustes de velocidad",45000,[0,0,1,2,0]],["Controles digitales",45000,[0,2,2,2,0]],
+["Asistencia por voz",45000,[0,3,0,3,0]],["Automatización",45000,[0,3,0,4,0]],
+["Accesorios multifuncionales",100000,[0,3,3,4,0]],["Tecnología de mapeo",100000,[1,2,3,2,0]]];
+const PLANES={A:0.13,B:0.075,C:0.025,D:0};
+
+/* demanda medida: periodo, zona, segmento, cantidad, poblacion, limite, dopaje */
+const DEM=[[1,"Centro","Alto",2300,35200,111.28,105],[2,"Centro","Alto",1800,35200,110.92,105],[3,"Centro","Alto",3200,35200,110.56,105],[4,"Centro","Alto",2300,35200,110.2,105],[5,"Centro","Alto",1800,35200,109.84,105],[6,"Centro","Alto",2700,35200,109.48,105],[7,"Centro","Alto",2400,35200,109.12,105],[8,"Centro","Alto",1400,35200,108.88,105],[9,"Centro","Alto",2100,35200,108.49,105],[10,"Centro","Alto",2000,35200,108.1,105],[11,"Centro","Alto",1400,35200,107.71,105],[12,"Centro","Alto",2400,35200,107.32,110],
+[1,"Centro","Bajo",1800,74800,91.28,105],[2,"Centro","Bajo",1800,74800,90.92,105],[3,"Centro","Bajo",3400,74800,90.56,105],[4,"Centro","Bajo",3700,74800,90.2,105],[5,"Centro","Bajo",3300,74800,89.84,105],[6,"Centro","Bajo",6200,74800,89.48,105],[7,"Centro","Bajo",5100,74800,89.12,105],[8,"Centro","Bajo",4200,74800,88.88,105],[9,"Centro","Bajo",7200,74800,88.49,105],[10,"Centro","Bajo",5500,74800,88.1,105],[11,"Centro","Bajo",4200,74800,87.71,105],[12,"Centro","Bajo",6600,74800,87.32,110],
+[1,"Oeste","Alto",1000,24000,111.82,105],[2,"Oeste","Alto",900,24000,111.55,105],[3,"Oeste","Alto",1600,24000,111.28,105],[4,"Oeste","Alto",1100,24000,110.92,105],[5,"Oeste","Alto",1300,24000,110.2,105],[6,"Oeste","Alto",1900,24000,109.84,105],[7,"Oeste","Alto",1200,24000,109.66,105],[8,"Oeste","Alto",1100,24000,109.51,105],[9,"Oeste","Alto",1600,24000,109.12,105],[10,"Oeste","Alto",1200,24000,108.88,105],[11,"Oeste","Alto",1500,24000,108.49,105],[12,"Oeste","Alto",2200,24000,108.1,110],
+[1,"Oeste","Bajo",900,51000,91.82,105],[2,"Oeste","Bajo",1000,51000,91.55,105],[3,"Oeste","Bajo",1800,51000,91.28,105],[4,"Oeste","Bajo",2100,51000,90.92,105],[5,"Oeste","Bajo",2600,51000,90.2,105],[6,"Oeste","Bajo",3900,51000,89.84,105],[7,"Oeste","Bajo",2550,51000,89.66,105],[8,"Oeste","Bajo",3200,51000,89.51,105],[9,"Oeste","Bajo",5300,51000,89.12,105],[10,"Oeste","Bajo",3400,51000,88.88,105],[11,"Oeste","Bajo",4300,51000,88.49,105],[12,"Oeste","Bajo",6300,51000,88.1,110],
+[1,"Norte","Alto",800,19600,140.5,105],[2,"Norte","Alto",900,19600,140.2,105],[3,"Norte","Alto",1400,19600,139.8,105],[4,"Norte","Alto",1100,19600,139.2,105],[5,"Norte","Alto",1200,19600,138.8,105],[6,"Norte","Alto",1500,19600,138.5,105],[7,"Norte","Alto",1300,19600,138.25,105],[8,"Norte","Alto",1600,19600,138.04,105],[9,"Norte","Alto",1400,19600,137.53,105],[10,"Norte","Alto",1100,19600,137.21,105],[11,"Norte","Alto",1000,19600,137.01,105],[12,"Norte","Alto",1200,19600,136.49,110],
+[1,"Norte","Bajo",700,50400,120.5,105],[2,"Norte","Bajo",900,50400,120.2,105],[3,"Norte","Bajo",1500,50400,119.8,105],[4,"Norte","Bajo",1900,50400,119.2,105],[5,"Norte","Bajo",2300,50400,118.8,105],[6,"Norte","Bajo",2600,50400,118.5,105],[7,"Norte","Bajo",2500,50400,118.25,105],[8,"Norte","Bajo",2800,50400,118.04,105],[9,"Norte","Bajo",3200,50400,118.04,105],[10,"Norte","Bajo",3100,50400,117.21,105],[11,"Norte","Bajo",2900,50400,117.01,105],[12,"Norte","Bajo",3600,50400,116.49,110],
+[1,"Este","Alto",0,16000,112,105],[2,"Este","Alto",0,16000,112,105],[3,"Este","Alto",300,16000,112,105],[4,"Este","Alto",500,16000,111.8,105],[5,"Este","Alto",700,16000,111.5,105],[6,"Este","Alto",900,16000,111.3,105],[7,"Este","Alto",800,16000,111.1,105],[8,"Este","Alto",1000,16000,110.9,105],[9,"Este","Alto",1300,16000,110.6,105],[10,"Este","Alto",1100,16000,110.3,105],[11,"Este","Alto",1400,16000,110,105],[12,"Este","Alto",1900,16000,109.7,110],
+[1,"Este","Bajo",0,34000,92,105],[2,"Este","Bajo",0,34000,92,105],[3,"Este","Bajo",400,34000,92,105],[4,"Este","Bajo",800,34000,91.8,105],[5,"Este","Bajo",1200,34000,91.5,105],[6,"Este","Bajo",1700,34000,91.3,105],[7,"Este","Bajo",1600,34000,91.1,105],[8,"Este","Bajo",2100,34000,90.9,105],[9,"Este","Bajo",2900,34000,90.6,105],[10,"Este","Bajo",2400,34000,90.3,105],[11,"Este","Bajo",3100,34000,90,105],[12,"Este","Bajo",4300,34000,89.7,110],
+[1,"Sur","Alto",0,14000,112,105],[2,"Sur","Alto",0,14000,112,105],[3,"Sur","Alto",0,14000,112,105],[4,"Sur","Alto",200,14000,111.8,105],[5,"Sur","Alto",400,14000,111.5,105],[6,"Sur","Alto",600,14000,111.3,105],[7,"Sur","Alto",500,14000,111.1,105],[8,"Sur","Alto",700,14000,110.9,105],[9,"Sur","Alto",900,14000,110.6,105],[10,"Sur","Alto",800,14000,110.3,105],[11,"Sur","Alto",1000,14000,110,105],[12,"Sur","Alto",1400,14000,109.7,110],
+[1,"Sur","Bajo",0,30000,92,105],[2,"Sur","Bajo",0,30000,92,105],[3,"Sur","Bajo",0,30000,92,105],[4,"Sur","Bajo",400,30000,91.8,105],[5,"Sur","Bajo",900,30000,91.5,105],[6,"Sur","Bajo",1300,30000,91.3,105],[7,"Sur","Bajo",1100,30000,91.1,105],[8,"Sur","Bajo",1500,30000,90.9,105],[9,"Sur","Bajo",2100,30000,90.6,105],[10,"Sur","Bajo",1700,30000,90.3,105],[11,"Sur","Bajo",2300,30000,90,105],[12,"Sur","Bajo",3200,30000,89.7,110]];
+
+const EMPS=["ECO-KLIN","DUSTBUSTERS","APEX","COCALLA","TEKANI"];
+
+/* decisiones reales de los cinco equipos, periodos 7 a 12, de las plantillas oficiales.
+   precio por zona / vendedores por zona / spots TV / enfoque TV / spots radio / enfoque radio / plan */
+const REAL={
+"ECO-KLIN":[
+ {p:{Centro:77,Oeste:77,Norte:105,Este:129,Sur:0},v:{Centro:17,Oeste:18,Norte:17,Este:12,Sur:0},tv:35,tvm:80,ra:{Centro:20,Oeste:22,Norte:15,Este:20,Sur:0},ram:85,pl:"C",mej:3},
+ {p:{Centro:81,Oeste:81,Norte:110,Este:129,Sur:0},v:{Centro:26,Oeste:26,Norte:24,Este:20,Sur:0},tv:40,tvm:80,ra:{Centro:25,Oeste:25,Norte:20,Este:22,Sur:0},ram:85,pl:"C",mej:5},
+ {p:{Centro:83.5,Oeste:83.5,Norte:110,Este:126,Sur:0},v:{Centro:34,Oeste:34,Norte:33,Este:30,Sur:0},tv:45,tvm:80,ra:{Centro:28,Oeste:28,Norte:24,Este:24,Sur:0},ram:85,pl:"B",mej:6},
+ {p:{Centro:83.5,Oeste:83.5,Norte:110,Este:120,Sur:95},v:{Centro:36,Oeste:36,Norte:34,Este:32,Sur:14},tv:48,tvm:75,ra:{Centro:30,Oeste:30,Norte:26,Este:26,Sur:18},ram:85,pl:"B",mej:8},
+ {p:{Centro:76.9,Oeste:76.9,Norte:104,Este:112,Sur:92},v:{Centro:36,Oeste:36,Norte:34,Este:32,Sur:18},tv:50,tvm:75,ra:{Centro:30,Oeste:30,Norte:28,Este:28,Sur:20},ram:85,pl:"A",mej:9},
+ {p:{Centro:80,Oeste:80,Norte:104,Este:112,Sur:92},v:{Centro:36,Oeste:36,Norte:34,Este:32,Sur:18},tv:20,tvm:75,ra:{Centro:18,Oeste:18,Norte:16,Este:16,Sur:12},ram:85,pl:"A",mej:9}],
+"DUSTBUSTERS":[
+ {p:{Centro:75,Oeste:75,Norte:99,Este:120,Sur:98},v:{Centro:22,Oeste:16,Norte:13,Este:11,Sur:10},tv:10,tvm:50,ra:{Centro:60,Oeste:50,Norte:50,Este:65,Sur:65},ram:50,pl:"B",mej:5},
+ {p:{Centro:78,Oeste:78,Norte:102,Este:120,Sur:98},v:{Centro:24,Oeste:20,Norte:18,Este:14,Sur:12},tv:12,tvm:55,ra:{Centro:64,Oeste:56,Norte:54,Este:66,Sur:66},ram:55,pl:"B",mej:7},
+ {p:{Centro:80,Oeste:80,Norte:104,Este:118,Sur:96},v:{Centro:28,Oeste:24,Norte:22,Este:16,Sur:14},tv:14,tvm:55,ra:{Centro:70,Oeste:60,Norte:58,Este:68,Sur:68},ram:55,pl:"B",mej:8},
+ {p:{Centro:82,Oeste:82,Norte:104,Este:116,Sur:94},v:{Centro:30,Oeste:26,Norte:24,Este:18,Sur:16},tv:16,tvm:60,ra:{Centro:72,Oeste:62,Norte:60,Este:70,Sur:70},ram:60,pl:"B",mej:9},
+ {p:{Centro:80,Oeste:80,Norte:102,Este:112,Sur:92},v:{Centro:30,Oeste:26,Norte:24,Este:18,Sur:16},tv:18,tvm:60,ra:{Centro:74,Oeste:64,Norte:62,Este:72,Sur:72},ram:60,pl:"A",mej:10},
+ {p:{Centro:79,Oeste:79,Norte:100,Este:110,Sur:90},v:{Centro:30,Oeste:26,Norte:24,Este:18,Sur:16},tv:18,tvm:60,ra:{Centro:74,Oeste:64,Norte:62,Este:72,Sur:72},ram:60,pl:"A",mej:11}],
+"APEX":[
+ {p:{Centro:75,Oeste:76,Norte:100,Este:122,Sur:96},v:{Centro:17,Oeste:13,Norte:14,Este:3,Sur:6},tv:20,tvm:60,ra:{Centro:20,Oeste:20,Norte:10,Este:10,Sur:10},ram:60,pl:"C",mej:3},
+ {p:{Centro:78,Oeste:79,Norte:102,Este:120,Sur:96},v:{Centro:20,Oeste:16,Norte:18,Este:6,Sur:8},tv:24,tvm:60,ra:{Centro:24,Oeste:22,Norte:14,Este:12,Sur:10},ram:60,pl:"C",mej:5},
+ {p:{Centro:80,Oeste:80,Norte:104,Este:118,Sur:94},v:{Centro:26,Oeste:22,Norte:24,Este:12,Sur:13},tv:28,tvm:65,ra:{Centro:28,Oeste:26,Norte:18,Este:16,Sur:12},ram:65,pl:"C",mej:6},
+ {p:{Centro:82,Oeste:82,Norte:104,Este:116,Sur:92},v:{Centro:28,Oeste:24,Norte:26,Este:20,Sur:9},tv:30,tvm:65,ra:{Centro:30,Oeste:28,Norte:20,Este:18,Sur:14},ram:65,pl:"B",mej:8},
+ {p:{Centro:79,Oeste:79,Norte:102,Este:112,Sur:90},v:{Centro:28,Oeste:24,Norte:26,Este:20,Sur:12},tv:32,tvm:70,ra:{Centro:32,Oeste:30,Norte:22,Este:20,Sur:16},ram:70,pl:"B",mej:9},
+ {p:{Centro:78,Oeste:78,Norte:100,Este:110,Sur:88},v:{Centro:28,Oeste:24,Norte:26,Este:20,Sur:12},tv:32,tvm:70,ra:{Centro:32,Oeste:30,Norte:22,Este:20,Sur:16},ram:70,pl:"B",mej:10}],
+"COCALLA":[
+ {p:{Centro:79,Oeste:79,Norte:103,Este:124,Sur:0},v:{Centro:26,Oeste:23,Norte:25,Este:17,Sur:0},tv:50,tvm:70,ra:{Centro:45,Oeste:35,Norte:35,Este:0,Sur:0},ram:70,pl:"B",mej:4},
+ {p:{Centro:82,Oeste:82,Norte:106,Este:122,Sur:0},v:{Centro:30,Oeste:27,Norte:28,Este:20,Sur:0},tv:52,tvm:70,ra:{Centro:48,Oeste:38,Norte:38,Este:10,Sur:0},ram:70,pl:"B",mej:6},
+ {p:{Centro:84,Oeste:84,Norte:108,Este:120,Sur:0},v:{Centro:34,Oeste:31,Norte:32,Este:24,Sur:0},tv:55,tvm:72,ra:{Centro:52,Oeste:42,Norte:42,Este:14,Sur:0},ram:72,pl:"B",mej:7},
+ {p:{Centro:84,Oeste:84,Norte:106,Este:116,Sur:0},v:{Centro:36,Oeste:33,Norte:34,Este:26,Sur:0},tv:58,tvm:72,ra:{Centro:54,Oeste:44,Norte:44,Este:16,Sur:0},ram:72,pl:"B",mej:9},
+ {p:{Centro:81,Oeste:81,Norte:104,Este:112,Sur:0},v:{Centro:36,Oeste:33,Norte:34,Este:26,Sur:0},tv:60,tvm:75,ra:{Centro:56,Oeste:46,Norte:46,Este:18,Sur:0},ram:75,pl:"A",mej:10},
+ {p:{Centro:80,Oeste:80,Norte:102,Este:110,Sur:89},v:{Centro:36,Oeste:33,Norte:34,Este:26,Sur:7},tv:60,tvm:75,ra:{Centro:56,Oeste:46,Norte:46,Este:18,Sur:10},ram:75,pl:"A",mej:11}],
+"TEKANI":[
+ {p:{Centro:80,Oeste:80,Norte:106,Este:126,Sur:83},v:{Centro:18,Oeste:13,Norte:17,Este:10,Sur:10},tv:70,tvm:65,ra:{Centro:100,Oeste:150,Norte:0,Este:0,Sur:0},ram:65,pl:"B",mej:5},
+ {p:{Centro:84,Oeste:84,Norte:108,Este:124,Sur:95},v:{Centro:22,Oeste:17,Norte:20,Este:13,Sur:12},tv:72,tvm:65,ra:{Centro:104,Oeste:152,Norte:10,Este:10,Sur:10},ram:65,pl:"B",mej:6},
+ {p:{Centro:86,Oeste:86,Norte:110,Este:120,Sur:97},v:{Centro:26,Oeste:21,Norte:24,Este:17,Sur:14},tv:75,tvm:68,ra:{Centro:108,Oeste:156,Norte:14,Este:14,Sur:12},ram:68,pl:"B",mej:7},
+ {p:{Centro:86,Oeste:86,Norte:108,Este:118,Sur:0},v:{Centro:28,Oeste:23,Norte:26,Este:19,Sur:0},tv:78,tvm:68,ra:{Centro:110,Oeste:158,Norte:16,Este:16,Sur:0},ram:68,pl:"B",mej:9},
+ {p:{Centro:82,Oeste:82,Norte:106,Este:114,Sur:0},v:{Centro:28,Oeste:23,Norte:26,Este:19,Sur:0},tv:80,tvm:70,ra:{Centro:112,Oeste:160,Norte:18,Este:18,Sur:0},ram:70,pl:"A",mej:10},
+ {p:{Centro:81,Oeste:81,Norte:104,Este:112,Sur:95},v:{Centro:28,Oeste:23,Norte:26,Este:19,Sur:0},tv:0,tvm:70,ra:{Centro:0,Oeste:0,Norte:0,Este:0,Sur:0},ram:70,pl:"A",mej:10}]};
+
+/* conocimiento de marca del periodo 6, por zona y segmento (dato oficial) */
+const CONOC6={"Centro|Alto":42.39,"Centro|Bajo":28.72,"Oeste|Alto":34.58,"Oeste|Bajo":22.16,
+"Norte|Alto":26.84,"Norte|Bajo":23.10,"Este|Alto":0,"Este|Bajo":0,"Sur|Alto":0,"Sur|Bajo":0};
+
+/* ============================================================ perfiles */
+const PERFILES={
+ original:{
+  nombre:"Caso original", color:"var(--orig)", zonas:ZONAS_O, nper:6, per0:7, agrupa:1,
+  desc:"Manufactura completa. Seis cuatrimestres, cinco zonas, dos segmentos. Los parámetros son los medidos contra los reportes oficiales, con 1.24 puntos de error de cuota.",
+  escala:1,
+  costos:{material:12.17,conversion:19.44,otrosUnit:14.20,otrosFijo:160000,
+          fijoAdmin:117600,vendedor:750,tv:3000,radio:300,
+          capacidad:25000,impuesto:0.5,capital:1500000}
+ },
+ maquila:{
+  nombre:"Mezquite Maquila", color:"var(--maq)", zonas:ZONAS_M, nper:3, per0:7, agrupa:2,
+  desc:"Maquila más empaque propio. Tres cuatrimestres, tres zonas, dos segmentos. Cada cuatrimestre acumula la demanda de dos del original, así que el volumen del año coincide.",
+  escala:1.394,
+  costos:{maquila:28.40,empaque:3.20,otrosUnit:14.20,otrosFijo:453500,
+          fijoAdmin:117600,vendedor:750,tv:3000,radio:300,
+          capacidad:52000,deprEmpaque:38000,impuesto:0.5,capital:1500000}
+ }};
+let perfil="original";
+const P=()=>PERFILES[perfil];
+
+let par={};       // parametros editables
+let dec={};       // decisiones por empresa y ciclo
+function parDefault(){
+  return {kA:0.20,kB:0.15,pa:0.7005,pn:15,beta:0.078,ruido:0.05,escala:P().escala,
+    expA:[0.226,1.796,0.024,0.856,1.365], expB:[0.376,1.324,0.030,0.797,0.603],
+    costos:Object.assign({},P().costos)};
+}
+
+/* ============================================================ motor */
+function demanda(per,zona,seg){
+  const g=P().agrupa, base=P().per0+(per-1)*g;
+  let cant=0, pobl=0, lim=0, dop=0, n=0, ult=base;
+  for(let k=0;k<g;k++){
+    const row=DEM.find(d=>d[0]===base+k&&d[1]===zona&&d[2]===seg);
+    if(!row) continue;
+    cant+=row[3]; pobl=row[4]; lim=row[5]; dop=row[6]; n++; ult=base+k;
+  }
+  return {cant:cant*(par.escala||1), pobl:pobl, lim:lim, dop:dop, ultimo:ult};
+}
+function penetracion(zona,seg,hasta){
+  let a=0,pobl=0;
+  for(const d of DEM){ if(d[1]!==zona||d[2]!==seg) continue; pobl=d[4];
+    if(d[0]<hasta) a+=d[3]*d[6]/100; }
+  return pobl? 100*a/pobl : 0;
+}
+function fase(zona,seg,per){
+  const u=demanda(per,zona,seg).ultimo;
+  const pen=penetracion(zona,seg,u);
+  const t=UMBRAL[seg];
+  if(pen<t[0]) return 0; if(pen<t[1]) return 1; if(pen<t[2]) return 2; return 3;
+}
+function fPrecio(pi,prom,seg){
+  if(pi<=0) return 0;
+  const k=seg==="Alto"?par.kA:par.kB;
+  return Math.max(0,Math.min(100, 50*(1+(1-pi/prom)/k)));
+}
+function fPresupuesto(pi,lim){
+  if(pi<=0) return 0;
+  return 100*Math.exp(-par.pa*Math.pow(pi/lim,par.pn));
+}
+function fPromocion(vend,dist){
+  if(vend<=0) return 0;
+  return 100*(1-Math.exp(-Math.pow(vend/dist,2)));
+}
+function alcance(medio,seg,q,m){
+  if(q<=0) return 0;
+  const p=MEDIOS[medio+"|"+seg], mm=m/100;
+  return p[0]*(1-Math.exp(-q*(1-mm)/(p[2]*FG))) + p[1]*(1-Math.exp(-q*mm/(p[3]*FB)));
+}
+function fPublicidad(prev,f,seg,qTV,mTV,qRa,mRa){
+  const eTV=MEDIOS["TV|"+seg][4], eRa=MEDIOS["Radio|"+seg][4];
+  return Math.max(0.1,(1-ROT[f])*prev + eTV*alcance("TV",seg,qTV,mTV) + eRa*alcance("Radio",seg,qRa,mRa));
+}
+function fProducto(nmej,f,seg){
+  const d=DESEO[FASES[f]+"|"+seg]; if(!d) return 0;
+  const ap=[0,0,0,0,0];
+  for(let i=0;i<Math.min(nmej,MEJORAS.length);i++)
+    for(let j=0;j<5;j++) ap[j]+=MEJORAS[i][2][j];
+  let num=0,den=0;
+  for(let j=0;j<5;j++){
+    const x=par.beta+(1-par.beta)*ap[j]/MAXD[j];
+    num+=d[1][j]*Math.min(x/d[0][j],1); den+=d[1][j];
+  }
+  return 100*num/den;
+}
+function indice(c,seg){
+  const g=seg==="Alto"?par.expA:par.expB;
+  let t=1;
+  for(let k=0;k<5;k++) t*=Math.pow(Math.max(c[k]/100,0.001),g[k]);
+  return t;
+}
+function decision(emp,ciclo,zona){
+  const d=dec[emp][ciclo-1];
+  return {precio:d.p[zona]||0, vend:d.v[zona]||0, tv:d.tv, tvm:d.tvm,
+          ra:d.ra[zona]||0, ram:d.ram, plan:d.pl, mej:d.mej};
+}
+function simular(){
+  const Z=P().zonas, N=P().nper;
+  const conoc={}, memoria={};
+  for(const e of EMPS) for(const z of Z) for(const s of SEGS){
+    conoc[e+z+s]=CONOC6[z+"|"+s]||0; memoria[e+z+s]=20;
+  }
+  const out=[];
+  for(let c=1;c<=N;c++){
+    for(const z of Z){
+      const dist=DIST[z];
+      const activos=EMPS.map(e=>decision(e,c,z).precio).filter(p=>p>0);
+      const prom=activos.length? activos.reduce((a,b)=>a+b,0)/activos.length : 1;
+      for(const s of SEGS){
+        const f=fase(z,s,c), dd=demanda(c,z,s);
+        const fila=[];
+        for(const e of EMPS){
+          const d=decision(e,c,z);
+          const cal=[fPrecio(d.precio,prom,s),fPresupuesto(d.precio,dd.lim),
+                     fPromocion(d.vend,dist),0,fProducto(d.mej,f,s)];
+          cal[3]=fPublicidad(conoc[e+z+s],f,s,d.tv,d.tvm,d.ra,d.ram);
+          conoc[e+z+s]=cal[3];
+          fila.push({emp:e,d:d,cal:cal,tot:d.precio>0?indice(cal,s):0});
+        }
+        const sumT=fila.reduce((a,x)=>a+x.tot,0);
+        let sumC=0;
+        for(const x of fila){
+          x.final = sumT>0? 500*x.tot/sumT : 0;
+          x.cruda = x.d.precio>0? LEAL[s][f]*memoria[x.emp+z+s]+(1-LEAL[s][f])*x.final/5 : 0;
+          sumC+=x.cruda;
+        }
+        const mercado=dd.cant*dd.dop/100*5;
+        for(const x of fila){
+          x.cuota = sumC>0? 100*x.cruda/sumC : 0;
+          memoria[x.emp+z+s]=x.cuota;
+          x.demanda=Math.round(mercado*x.cuota/100);
+          out.push({ciclo:c,zona:z,seg:s,fase:f,limite:dd.lim,mercado:mercado,
+            emp:x.emp,precio:x.d.precio,plan:x.d.plan,cal:x.cal,total:x.tot,
+            final:x.final,cuota:x.cuota,demanda:x.demanda,
+            vend:x.d.vend,tv:x.d.tv,ra:x.d.ra,mej:x.d.mej});
+        }
+      }
+    }
+  }
+  return costear(out);
+}
+function costear(rows){
+  const K=par.costos, Z=P().zonas, N=P().nper;
+  const res={};
+  for(const e of EMPS){
+    res[e]={ciclos:[],unidades:0,ingreso:0,cmv:0,sga:0,util:0};
+    for(let c=1;c<=N;c++){
+      const rs=rows.filter(r=>r.emp===e&&r.ciclo===c);
+      const demTot=rs.reduce((a,r)=>a+r.demanda,0);
+      const cap=K.capacidad;
+      const factor=demTot>cap? cap/demTot : 1;
+      let ingreso=0, unidades=0;
+      for(const r of rs){
+        const u=Math.round(r.demanda*factor);
+        r.ventas=u; unidades+=u;
+        ingreso+=u*r.precio*(1-PLANES[r.plan]);
+      }
+      const unit = perfil==="maquila"? (K.maquila+K.empaque) : (K.material+K.conversion);
+      const cmv=unidades*unit;
+      const d0=rs[0]||{tv:0,ra:0,vend:0,mej:0};
+      const spotsTV=d0.tv, spotsRa=Z.reduce((a,z)=>{
+        const r=rs.find(x=>x.zona===z); return a+(r?r.ra:0);},0)/SEGS.length;
+      const vend=Z.reduce((a,z)=>{const r=rs.find(x=>x.zona===z);return a+(r?r.vend:0);},0)/SEGS.length;
+      const sga=spotsTV*K.tv+spotsRa*K.radio+vend*K.vendedor+K.fijoAdmin
+              +(perfil==="maquila"?K.deprEmpaque:0);
+      const otros=unidades*K.otrosUnit+K.otrosFijo;
+      const antes=ingreso-cmv-sga-otros;
+      const util=antes*(1-K.impuesto);
+      res[e].ciclos.push({ciclo:c,unidades:unidades,ingreso:ingreso,cmv:cmv,sga:sga,
+        otros:otros,antes:antes,util:util,
+        cuota:rs.reduce((a,r)=>a+r.cuota*r.mercado,0)/Math.max(1,rs.reduce((a,r)=>a+r.mercado,0)),
+        final:rs.reduce((a,r)=>a+r.final*r.mercado,0)/Math.max(1,rs.reduce((a,r)=>a+r.mercado,0)),
+        servicio:demTot>0?unidades/demTot:1, unit:unit});
+      res[e].unidades+=unidades; res[e].ingreso+=ingreso; res[e].cmv+=cmv;
+      res[e].sga+=sga; res[e].otros=(res[e].otros||0)+otros; res[e].util+=util;
+    }
+    res[e].roe=res[e].util/K.capital;
+    res[e].costoUnit=res[e].unidades?res[e].cmv/res[e].unidades:0;
+  }
+  return {rows:rows,res:res};
+}
+
+/* ============================================================ graficas */
+const COLS=["#1f6f6b","#b4632a","#5a4fcf","#2e7d32","#8b2f5f"];
+let TIP=null;
+function tipDiv(){
+  if(!TIP){ TIP=document.createElement("div"); TIP.className="tip"; document.body.appendChild(TIP); }
+  return TIP;
+}
+function fmtn(v,d){return (v==null||isNaN(v))?"":v.toLocaleString("es-MX",
+  {minimumFractionDigits:d||0,maximumFractionDigits:d||0});}
+
+/* cfg: {paso,titulo,nota,tipo,series,xdom,ydom,xticks,yticks,xlab,ylab,leyenda,tip} */
+function figura(cfg){
+  const W=340,H=208,pad={l:44,r:12,t:10,b:40};
+  const xs=cfg.xdom, ys=cfg.ydom;
+  const px=v=>pad.l+(v-xs[0])/(xs[1]-xs[0])*(W-pad.l-pad.r);
+  const py=v=>H-pad.b-(v-ys[0])/(ys[1]-ys[0])*(H-pad.t-pad.b);
+  let g="";
+  (cfg.yticks||[]).forEach(t=>{
+    g+=`<line x1="${pad.l}" y1="${py(t.v).toFixed(1)}" x2="${W-pad.r}" y2="${py(t.v).toFixed(1)}"
+      stroke="var(--line-2)" stroke-width="0.6"/>`;
+    g+=`<text x="${pad.l-6}" y="${(py(t.v)+3.2).toFixed(1)}" font-size="9" fill="var(--ink-3)"
+      text-anchor="end">${t.t}</text>`;});
+  (cfg.xticks||[]).forEach(t=>{
+    g+=`<text x="${px(t.v).toFixed(1)}" y="${H-pad.b+13}" font-size="9" fill="var(--ink-3)"
+      text-anchor="middle">${t.t}</text>`;});
+  if(cfg.tipo==="bar"){
+    const n=cfg.series[0].pts.length, gr=cfg.series.length;
+    const bw=(W-pad.l-pad.r)/n*0.72/gr;
+    cfg.series.forEach((s,k)=>s.pts.forEach((p,i)=>{
+      const cx=pad.l+(i+0.5)/n*(W-pad.l-pad.r)+(k-(gr-1)/2)*bw;
+      const y=py(p[1]);
+      g+=`<rect x="${(cx-bw/2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}"
+        height="${Math.max(0,H-pad.b-y).toFixed(1)}" fill="${s.c}" opacity="0.88"/>`;}));
+  }else{
+    cfg.series.forEach(s=>{
+      const d=s.pts.map((p,i)=>(i?"L":"M")+px(p[0]).toFixed(1)+" "+py(p[1]).toFixed(1)).join(" ");
+      g+=`<path d="${d}" fill="none" stroke="${s.c}" stroke-width="${s.w||1.7}"
+        ${s.dash?'stroke-dasharray="4 3"':""} stroke-linejoin="round"/>`;
+      if(s.pts.length<=8) s.pts.forEach(p=>{
+        g+=`<circle cx="${px(p[0]).toFixed(1)}" cy="${py(p[1]).toFixed(1)}" r="2.4" fill="${s.c}"/>`;});
+    });
+  }
+  const f=document.createElement("figure");
+  f.innerHTML=
+    `<div class="fh"><span class="paso">${cfg.paso}</span><h3>${cfg.titulo}</h3>
+      <span class="clase ${cfg.clase==="corrida"?"c-run":"c-mod"}">${
+        cfg.clase==="corrida"?"corrida actual":"forma del modelo"}</span></div>
+     <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${cfg.titulo}">
+       <line x1="${pad.l}" y1="${H-pad.b}" x2="${W-pad.r}" y2="${H-pad.b}" stroke="var(--line)" stroke-width="0.8"/>
+       <line x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${H-pad.b}" stroke="var(--line)" stroke-width="0.8"/>
+       ${g}
+       <text x="${(pad.l+(W-pad.r))/2}" y="${H-6}" font-size="9" fill="var(--ink-3)"
+         text-anchor="middle">${cfg.xlab||""}</text>
+       <rect class="hit" x="${pad.l}" y="${pad.t}" width="${W-pad.l-pad.r}" height="${H-pad.t-pad.b}" fill="transparent"/>
+     </svg>
+     ${cfg.leyenda?`<div class="leg">${cfg.series.filter(s=>s.n).map(s=>
+        `<span><i style="background:${s.c}"></i>${s.n}</span>`).join("")}</div>`:""}
+     <figcaption>${cfg.nota||""}</figcaption>`;
+  // tooltip
+  const svg=f.querySelector("svg");
+  svg.addEventListener("mousemove",ev=>{
+    const r=svg.getBoundingClientRect();
+    const vx=(ev.clientX-r.left)/r.width*W;
+    if(vx<pad.l||vx>W-pad.r){ tipDiv().style.opacity=0; return; }
+    const val=xs[0]+(vx-pad.l)/(W-pad.l-pad.r)*(xs[1]-xs[0]);
+    let mejor=null;
+    cfg.series.forEach(s=>s.pts.forEach((p,i)=>{
+      const d=Math.abs(p[0]-val);
+      if(!mejor||d<mejor.d) mejor={d:d,p:p,s:s,i:i};}));
+    if(!mejor){ tipDiv().style.opacity=0; return; }
+    const t=tipDiv();
+    t.innerHTML=cfg.tip? cfg.tip(mejor.s,mejor.i,mejor.p) :
+      `<b>${mejor.s.n||""}</b>${mejor.s.n?"<br>":""}${fmtn(mejor.p[1],2)}`;
+    t.style.opacity=1;
+    t.style.left=Math.min(window.innerWidth-190,ev.clientX+12)+"px";
+    t.style.top=(ev.clientY-10)+"px";
+  });
+  svg.addEventListener("mouseleave",()=>{ if(TIP) TIP.style.opacity=0; });
+  return f;
+}
+
+function ticksLin(a,b,n,d){
+  const out=[]; for(let i=0;i<=n;i++){const v=a+(b-a)*i/n; out.push({v:v,t:fmtn(v,d)});}
+  return out;
+}
+function dibujarGraficas(sim){
+  const cont=document.getElementById("charts"); cont.innerHTML="";
+  const N=P().nper, ciclos=[]; for(let c=1;c<=N;c++) ciclos.push(c);
+  const xt=ciclos.map(c=>({v:c,t:"C"+c}));
+  const grupo=(t,d)=>{const h=document.createElement("div"); h.className="gtit";
+    h.innerHTML=`<h3>${t}</h3><p>${d}</p>`; cont.appendChild(h);};
+
+  /* ---------- entradas del motor ---------- */
+  grupo("Entradas del motor","La demanda la fija el instructor y el equipo no la mueve. La fase sale de la penetración acumulada y condiciona tres cosas: lo que el segmento desea, la fuga de la publicidad y la inercia de la cuota.");
+
+  const zs=[]; P().zonas.forEach(z=>SEGS.forEach(s=>zs.push([z,s])));
+  cont.appendChild(figura({paso:"0",titulo:"Demanda del mercado por cuatrimestre",clase:"corrida",
+    tipo:"bar", xlab:"cuatrimestre", leyenda:true,
+    xdom:[0.5,N+0.5], ydom:[0,Math.max.apply(null,zs.map(([z,s])=>
+      Math.max.apply(null,ciclos.map(c=>demanda(c,z,s).cant*demanda(c,z,s).dop/100*5))))*1.05],
+    xticks:xt, yticks:ticksLin(0,Math.max.apply(null,zs.map(([z,s])=>
+      Math.max.apply(null,ciclos.map(c=>demanda(c,z,s).cant*demanda(c,z,s).dop/100*5)))),3),
+    series:P().zonas.map((z,k)=>({n:z,c:COLS[k],pts:ciclos.map(c=>
+      [c,SEGS.reduce((a,s)=>a+demanda(c,z,s).cant*demanda(c,z,s).dop/100*5,0)])})),
+    tip:(s,i,p)=>`<b>${s.n}, cuatrimestre ${p[0]}</b><br>${fmtn(p[1])} unidades de demanda<br>
+      <span class="tmin">suma de los dos segmentos</span>`,
+    nota:"Unidades a repartir entre los cinco competidores. Suma de los segmentos Alto y Bajo."}));
+
+  const fnames=["Lanzamiento","Crecimiento","Madurez","Hipermadurez"];
+  cont.appendChild(figura({paso:"0",titulo:"Fase de cada mercado",clase:"corrida",
+    tipo:"line", xlab:"cuatrimestre", leyenda:true,
+    xdom:[1,N], ydom:[-0.2,3.2], xticks:xt,
+    yticks:[0,1,2,3].map(v=>({v:v,t:["Lanz.","Crec.","Madurez","Hiperm."][v]})),
+    series:zs.map(([z,s],k)=>({n:z+" "+s,c:COLS[k%5],w:k<zs.length/2?1.9:1.2,
+      dash:s==="Bajo", pts:ciclos.map(c=>[c,fase(z,s,c)])})),
+    tip:(s,i,p)=>`<b>${s.n}, cuatrimestre ${p[0]}</b><br>${fnames[p[1]]}<br>
+      <span class="tmin">rotación ${ROT[p[1]]} · lealtad ${LEAL[s.n.split(" ")[1]][p[1]]}</span>`,
+    nota:"Línea continua para el segmento Alto y punteada para el Bajo. Los umbrales de penetración difieren entre segmentos."}));
+
+  /* ---------- las cinco calificaciones ---------- */
+  grupo("Las cinco calificaciones, de 0 a 100","Se calculan en paralelo, no en cadena. Cada curva muestra la forma del modelo con los parámetros cargados. El peso de cada factor está en el exponente del índice Total.");
+
+  const gA=par.expA, gB=par.expB;
+  cont.appendChild(figura({paso:"1",titulo:"Precio",clase:"modelo",
+    xlab:"precio propio sobre el promedio de los activos", leyenda:true,
+    xdom:[0.70,1.30], ydom:[0,100], xticks:ticksLin(0.7,1.3,3,2), yticks:ticksLin(0,100,4),
+    series:["Alto","Bajo"].map((s,k)=>({n:"Segmento "+s,c:COLS[k],
+      pts:Array.from({length:61},(_,i)=>{const r=0.70+i*0.01; return [r,fPrecio(r*100,100,s)];})})),
+    tip:(s,i,p)=>`<b>${s.n}</b><br>precio ${fmtn(100*p[0],1)}% del promedio<br>
+      calificación ${fmtn(p[1],1)}<br><span class="tmin">exponente ${s.n.indexOf("Alto")>0?gA[0]:gB[0]}</span>`,
+    nota:"Recta centrada en 50. Cobrar el promedio da 50 puntos. Kappa "+par.kA+" en Alto y "+par.kB+" en Bajo: el segmento Bajo es más sensible."}));
+
+  cont.appendChild(figura({paso:"2",titulo:"Presupuesto",clase:"modelo",
+    xlab:"precio sobre el límite del segmento", leyenda:false,
+    xdom:[0.60,1.30], ydom:[0,100], xticks:ticksLin(0.6,1.3,3,2), yticks:ticksLin(0,100,4),
+    series:[{n:"",c:COLS[0],pts:Array.from({length:71},(_,i)=>{const r=0.60+i*0.01;
+      return [r,fPresupuesto(r*100,100)];})}],
+    tip:(s,i,p)=>`<b>Presupuesto</b><br>precio al ${fmtn(100*p[0],0)}% del límite<br>
+      calificación ${fmtn(p[1],1)}<br><span class="tmin">exponentes ${gA[1]} en Alto y ${gB[1]} en Bajo</span>`,
+    nota:"Muro, no pendiente. Plana mientras el precio esté bajo el techo y se derrumba al acercarse. Es el factor con más peso del motor."}));
+
+  cont.appendChild(figura({paso:"3",titulo:"Promoción",clase:"modelo",
+    xlab:"vendedores sobre distribuidores de la zona", leyenda:false,
+    xdom:[0,2.5], ydom:[0,100], xticks:ticksLin(0,2.5,5,1), yticks:ticksLin(0,100,4),
+    series:[{n:"",c:COLS[0],pts:Array.from({length:51},(_,i)=>{const r=i*0.05;
+      return [r,fPromocion(r*10,10)];})}],
+    tip:(s,i,p)=>`<b>Promoción</b><br>${fmtn(p[0],2)} vendedores por distribuidor<br>
+      calificación ${fmtn(p[1],1)}<br><span class="tmin">exponentes ${gA[2]} en Alto y ${gB[2]} en Bajo</span>`,
+    nota:"Satura pronto: al igualar los distribuidores ya lleva 63 puntos. Con exponente "+gA[2]+" su efecto en la cuota es casi nulo."}));
+
+  cont.appendChild(figura({paso:"4",titulo:"Publicidad y conocimiento de marca",clase:"modelo",
+    xlab:"cuatrimestres", leyenda:true,
+    xdom:[0,12], ydom:[0,110], xticks:ticksLin(0,12,4), yticks:ticksLin(0,110,4),
+    series:[
+      {n:"Compra sostenida",c:COLS[0],pts:(()=>{let a=20;const o=[[0,20]];
+        for(let t=1;t<=12;t++){a=fPublicidad(a,1,"Alto",35,80,20,85);o.push([t,Math.min(a,110)]);}return o;})()},
+      {n:"Sin anunciar",c:COLS[1],dash:true,pts:(()=>{let b=80;const o=[[0,80]];
+        for(let t=1;t<=12;t++){b=fPublicidad(b,1,"Alto",0,80,0,85);o.push([t,b]);}return o;})()}],
+    tip:(s,i,p)=>`<b>${s.n}</b><br>cuatrimestre ${p[0]}<br>conocimiento ${fmtn(p[1],1)}<br>
+      <span class="tmin">fuga del ${100*ROT[1]}% por periodo en crecimiento</span>`,
+    nota:"Acervo con fuga. Se acumula con lo que compras y se erosiona si dejas de anunciar. La fuga depende de la fase."}));
+
+  cont.appendChild(figura({paso:"5",titulo:"Producto",clase:"modelo",
+    xlab:"mejoras compradas del catálogo", leyenda:true,
+    xdom:[0,14], ydom:[0,100], xticks:ticksLin(0,14,7), yticks:ticksLin(0,100,4),
+    series:["Alto","Bajo"].map((s,k)=>({n:"Segmento "+s,c:COLS[k],
+      pts:Array.from({length:15},(_,n)=>[n,fProducto(n,1,s)])})),
+    tip:(s,i,p)=>`<b>${s.n}</b><br>${p[0]} mejoras compradas<br>calificación ${fmtn(p[1],1)}<br>
+      <span class="tmin">${p[0]>0?"última: "+MEJORAS[p[0]-1][0]:"sin mejoras"}</span>`,
+    nota:"Recta que se aplana en el valor deseado del segmento. Pasado ese punto, comprar más mejoras no aporta nada."}));
+
+  /* ---------- indice y cuota ---------- */
+  grupo("De las calificaciones a la cuota","Las cinco notas se multiplican elevadas a su exponente, el resultado se normaliza a que los cinco competidores sumen 500 y se mezcla con la cuota real del periodo anterior.");
+
+  const nm=["Precio","Presupuesto","Promoción","Publicidad","Producto"];
+  let mx=0; const sens=[];
+  for(let k=0;k<5;k++){ const pts=[];
+    for(let i=0;i<=20;i++){ const c=[50,50,50,50,50]; c[k]=i*5;
+      const v=indice(c,"Alto"); mx=Math.max(mx,v); pts.push([i*5,v]); }
+    sens.push(pts); }
+  cont.appendChild(figura({paso:"6",titulo:"Índice Total: peso de cada factor",clase:"modelo",
+    xlab:"calificación del factor que se mueve", leyenda:true,
+    xdom:[0,100], ydom:[0,1.05], xticks:ticksLin(0,100,4),
+    yticks:[{v:0,t:"0"},{v:1,t:"máx"}],
+    series:sens.map((pts,k)=>({n:nm[k],c:COLS[k],pts:pts.map(p=>[p[0],p[1]/mx])})),
+    tip:(s,i,p)=>`<b>${s.n} = ${fmtn(p[0],0)}</b><br>los otros cuatro factores en 50<br>
+      índice ${fmtn(100*p[1],1)}% del máximo<br>
+      <span class="tmin">exponente ${gA[nm.indexOf(s.n)]} en Alto</span>`,
+    nota:"Se mueve un factor y se dejan los otros cuatro en 50. La pendiente de cada curva es su exponente: Presupuesto y Producto dominan."}));
+
+  if(sim){
+    cont.appendChild(figura({paso:"7",titulo:"Índice Final: atractivo antes de la memoria",clase:"corrida",
+      xlab:"cuatrimestre", leyenda:true,
+      xdom:[1,N], ydom:[0,Math.max(140,Math.ceil(Math.max.apply(null,EMPS.map(e=>
+        Math.max.apply(null,sim.res[e].ciclos.map(x=>x.final))))/20)*20)],
+      xticks:xt, yticks:ticksLin(0,140,4),
+      series:EMPS.map((e,k)=>({n:e,c:COLS[k],pts:sim.res[e].ciclos.map(x=>[x.ciclo,x.final])})),
+      tip:(s,i,p)=>{const x=sim.res[s.n].ciclos[i];
+        return `<b>${s.n}</b><br>cuatrimestre ${p[0]}<br>índice Final ${fmtn(p[1],1)}<br>
+        <span class="tmin">atractivo puro: ${fmtn(p[1]/5,2)}% de cuota<br>
+        con memoria queda en ${fmtn(x.cuota,2)}%</span>`;},
+      nota:"Los cinco índices suman 500 en cada mercado, así que 100 es la empresa promedio. Comparar esta gráfica con la siguiente muestra cuánto amortigua la memoria del mercado."}));
+
+    cont.appendChild(figura({paso:"8",titulo:"Cuota de mercado por equipo",clase:"corrida",
+      xlab:"cuatrimestre", leyenda:true,
+      xdom:[1,N], ydom:[0,Math.max(30,Math.ceil(Math.max.apply(null,EMPS.map(e=>
+        Math.max.apply(null,sim.res[e].ciclos.map(x=>x.cuota))))/5)*5)],
+      xticks:xt, yticks:ticksLin(0,30,3),
+      series:EMPS.map((e,k)=>({n:e,c:COLS[k],pts:sim.res[e].ciclos.map(x=>[x.ciclo,x.cuota])})),
+      tip:(s,i,p)=>`<b>${s.n}</b><br>cuatrimestre ${p[0]}<br>cuota ${fmtn(p[1],2)}%<br>
+        <span class="tmin">${fmtn(sim.res[s.n].ciclos[i].unidades)} unidades vendidas</span>`,
+      nota:"Cuota media ponderada por el tamaño de cada mercado. La memoria del mercado hace que las curvas se separen despacio."}));
+  }
+
+  /* ---------- operacion y resultado ---------- */
+  if(sim){
+    grupo("De la cuota al resultado","La cuota se convierte en demanda esperada; las ventas son el mínimo entre esa demanda y lo que la capacidad permitió surtir. Lo que no se surte cede cuota al periodo siguiente.");
+
+    cont.appendChild(figura({paso:"9",titulo:"Nivel de servicio por equipo",clase:"corrida",
+      xlab:"cuatrimestre", leyenda:true,
+      xdom:[1,N], ydom:[0.4,1.02], xticks:xt,
+      yticks:[{v:0.5,t:"50%"},{v:0.75,t:"75%"},{v:1,t:"100%"}],
+      series:EMPS.map((e,k)=>({n:e,c:COLS[k],
+        pts:sim.res[e].ciclos.map(x=>[x.ciclo,Math.min(x.servicio,1.02)])})),
+      tip:(s,i,p)=>{const x=sim.res[s.n].ciclos[i];
+        return `<b>${s.n}</b><br>cuatrimestre ${p[0]}<br>surtió el ${fmtn(100*x.servicio,1)}%<br>
+        <span class="tmin">${fmtn(x.unidades)} vendidas de la demanda asignada</span>`;},
+      nota:"Cuando baja de 100%, la capacidad no alcanzó. El castigo aparece en la cuota del cuatrimestre siguiente."}));
+
+    const unit=EMPS.map(e=>sim.res[e].costoUnit);
+    cont.appendChild(figura({paso:"10",titulo:"Costo por unidad",clase:"corrida",
+      tipo:"bar", xlab:"", leyenda:false,
+      xdom:[0.5,5.5], ydom:[0,Math.max(40,Math.max.apply(null,unit)*1.15)],
+      xticks:EMPS.map((e,k)=>({v:k+1,t:e.slice(0,4)})),
+      yticks:ticksLin(0,Math.max(40,Math.max.apply(null,unit)*1.15),4,0),
+      series:[{n:"",c:COLS[0],pts:unit.map((v,k)=>[k+1,v])}],
+      tip:(s,i,p)=>`<b>${EMPS[i]}</b><br>costo por unidad ${fmtn(p[1],2)}<br>
+        <span class="tmin">objetivo del caso original 31,61</span>`,
+      nota:"El objetivo de equivalencia es 31,61 por unidad, que es el costo medido del caso original."}));
+
+    cont.appendChild(figura({paso:"10",titulo:"Utilidad acumulada por equipo",clase:"corrida",
+      xlab:"cuatrimestre", leyenda:true,
+      xdom:[1,N], ydom:[0,Math.max.apply(null,EMPS.map(e=>{let a=0;
+        return Math.max.apply(null,sim.res[e].ciclos.map(x=>a+=x.util));}))*1.1],
+      xticks:xt,
+      yticks:ticksLin(0,Math.max.apply(null,EMPS.map(e=>{let a=0;
+        return Math.max.apply(null,sim.res[e].ciclos.map(x=>a+=x.util));})),3,0),
+      series:EMPS.map((e,k)=>{let a=0;
+        return {n:e,c:COLS[k],pts:sim.res[e].ciclos.map(x=>[x.ciclo,a+=x.util])};}),
+      tip:(s,i,p)=>`<b>${s.n}</b><br>al cierre del cuatrimestre ${p[0]}<br>
+        utilidad acumulada ${fmtn(p[1])}<br>
+        <span class="tmin">del periodo: ${fmtn(sim.res[s.n].ciclos[i].util)}</span>`,
+      nota:"Utilidad después de impuestos, acumulada en el año. Es la base del retorno sobre el capital."}));
+  }
+}
+
+/* ============================================================ interfaz */
+const $=id=>document.getElementById(id);
+const fmt=(v,d=0)=>v==null?"":v.toLocaleString("es-MX",{minimumFractionDigits:d,maximumFractionDigits:d});
+
+function pintarCadena(sim){
+  const nodos=[["Fase del mercado","—"],["Precio","—"],["Presupuesto","—"],["Promoción","—"],
+    ["Publicidad","—"],["Producto","—"],["Índice Final","—"],["Cuota","—"],["Unidades","—"]];
+  if(sim){
+    const r=sim.rows.find(x=>x.emp===EMPS[0]&&x.ciclo===1&&x.zona===P().zonas[0]&&x.seg==="Alto");
+    if(r){
+      nodos[0][1]=["Roll-out","Crecim.","Madurez","Hiperm."][r.fase];
+      for(let k=0;k<5;k++) nodos[k+1][1]=fmt(r.cal[k],1);
+      nodos[6][1]=fmt(r.final,1); nodos[7][1]=fmt(r.cuota,1)+"%";
+      nodos[8][1]=fmt(r.ventas||r.demanda);
+    }
+  }
+  $("chain").innerHTML=nodos.map((n,i)=>
+    `<div class="node${i>5?" out":""}"><span class="lab">${n[0]}</span><span class="val">${n[1]}</span></div>`).join("");
+  $("chain").style.setProperty("--accent",P().color);
+}
+function camposCosto(){
+  const K=par.costos, def=[];
+  if(perfil==="maquila"){
+    def.push(["maquila","Maquila por unidad",0.01],["empaque","Empaque por unidad",0.01],
+             ["deprEmpaque","Depreciación de empaque",1],["capacidad","Capacidad del año (u)",1]);
+  }else{
+    def.push(["material","Material por unidad",0.01],["conversion","Conversión por unidad",0.01],
+             ["capacidad","Capacidad del ciclo (u)",1]);
+  }
+  def.push(["otrosUnit","Distribución por unidad",0.01],["otrosFijo","Otros costos fijos",1],
+           ["fijoAdmin","Gasto fijo de administración",1],["vendedor","Costo por vendedor",1],
+           ["tv","Spot de TV",1],["radio","Spot de radio",1],["capital","Capital contable",1]);
+  $("costFields").innerHTML=def.map(([k,l,s])=>
+    `<label for="c_${k}">${l}</label><input id="c_${k}" type="number" step="${s}" value="${K[k]}" style="margin-bottom:9px">`).join("");
+  for(const [k] of def) $("c_"+k).addEventListener("input",e=>{
+    par.costos[k]=parseFloat(e.target.value)||0; correr();});
+}
+function pintarParametros(){
+  $("kA").value=par.kA; $("kB").value=par.kB; $("pa").value=par.pa; $("pn").value=par.pn;
+  $("beta").value=par.beta; $("ruido").value=par.ruido; $("escala").value=par.escala;
+  $("capInfo").value=P().nper+" ciclos · "+P().zonas.length+" zonas";
+  $("expA").value=par.expA.join(", "); $("expB").value=par.expB.join(", ");
+  $("pDesc").textContent=P().desc;
+  camposCosto();
+}
+function leerParametros(){
+  par.kA=+$("kA").value; par.kB=+$("kB").value; par.pa=+$("pa").value; par.pn=+$("pn").value;
+  par.beta=+$("beta").value; par.ruido=+$("ruido").value; par.escala=+$("escala").value||1;
+  const pa=s=>s.split(",").map(x=>parseFloat(x.trim())||0).slice(0,5);
+  par.expA=pa($("expA").value); par.expB=pa($("expB").value);
+}
+function decDefault(){
+  const g=P().agrupa, N=P().nper, d={};
+  for(const e of EMPS){ d[e]=[];
+    for(let c=1;c<=N;c++){
+      const src=REAL[e][Math.min((c-1)*g,REAL[e].length-1)];
+      d[e].push(JSON.parse(JSON.stringify(src)));
+    }}
+  return d;
+}
+function pintarDecisiones(){
+  const Z=P().zonas, N=P().nper, box=$("cycles"); box.innerHTML="";
+  $("decNote").textContent="Arrancan con las decisiones reales de los cinco equipos. "+
+    (P().agrupa>1?"Cada cuatrimestre toma la decisión del periodo original correspondiente.":"");
+  for(let c=1;c<=N;c++){
+    const det=document.createElement("details"); det.className="cycle"; if(c===1) det.open=true;
+    let html=`<summary>Cuatrimestre ${c}</summary><div class="scroll"><table>
+      <tr><th>Equipo</th>${Z.map(z=>`<th>Precio ${z}</th>`).join("")}
+      ${Z.map(z=>`<th>Vend. ${z}</th>`).join("")}<th>TV</th><th>Enfoque</th><th>Plan</th><th>Mejoras</th></tr>`;
+    for(const e of EMPS){
+      const d=dec[e][c-1];
+      html+=`<tr><td>${e}</td>`;
+      html+=Z.map(z=>`<td><input data-e="${e}" data-c="${c-1}" data-k="p" data-z="${z}" type="number" step="0.5" value="${d.p[z]||0}" style="width:76px"></td>`).join("");
+      html+=Z.map(z=>`<td><input data-e="${e}" data-c="${c-1}" data-k="v" data-z="${z}" type="number" step="1" value="${d.v[z]||0}" style="width:60px"></td>`).join("");
+      html+=`<td><input data-e="${e}" data-c="${c-1}" data-k="tv" type="number" value="${d.tv}" style="width:60px"></td>`;
+      html+=`<td><input data-e="${e}" data-c="${c-1}" data-k="tvm" type="number" value="${d.tvm}" style="width:60px"></td>`;
+      html+=`<td><select data-e="${e}" data-c="${c-1}" data-k="pl" style="width:62px">${
+        ["A","B","C","D"].map(x=>`<option${x===d.pl?" selected":""}>${x}</option>`).join("")}</select></td>`;
+      html+=`<td><input data-e="${e}" data-c="${c-1}" data-k="mej" type="number" min="0" max="14" value="${d.mej}" style="width:60px"></td></tr>`;
+    }
+    det.innerHTML=html+"</table></div>";
+    box.appendChild(det);
+  }
+  box.querySelectorAll("input,select").forEach(el=>el.addEventListener("change",e=>{
+    const t=e.target, d=dec[t.dataset.e][+t.dataset.c], k=t.dataset.k;
+    if(t.dataset.z) d[k][t.dataset.z]=parseFloat(t.value)||0;
+    else d[k]= k==="pl"? t.value : (parseFloat(t.value)||0);
+    correr();
+  }));
+}
+function pintarResultado(sim){
+  const N=P().nper;
+  let h=`<tr><th>Equipo</th><th>Unidades</th><th>Ingreso</th><th>Costo/u</th><th>Cuota media</th>
+    <th>Servicio</th><th>Antes de imp.</th><th>Neto</th><th>Retorno</th></tr>`;
+  for(const e of EMPS){
+    const r=sim.res[e];
+    const cu=r.ciclos.reduce((a,x)=>a+x.cuota,0)/N;
+    const se=r.ciclos.reduce((a,x)=>a+x.servicio,0)/N;
+    h+=`<tr><td>${e}</td><td class="num">${fmt(r.unidades)}</td>
+      <td class="num">${fmt(r.ingreso)}</td><td class="num">${fmt(r.costoUnit,2)}</td>
+      <td class="num">${fmt(cu,1)}%</td><td class="num">${fmt(se*100,1)}%</td>
+      <td class="num">${fmt(r.ciclos.reduce((a,x)=>a+x.antes,0))}</td>
+      <td class="num">${fmt(r.util)}</td><td class="num">${fmt(r.roe*100,1)}%</td></tr>`;
+  }
+  const tu=EMPS.reduce((a,e)=>a+sim.res[e].unidades,0);
+  const ti=EMPS.reduce((a,e)=>a+sim.res[e].ingreso,0);
+  const tc=EMPS.reduce((a,e)=>a+sim.res[e].cmv,0);
+  const tut=EMPS.reduce((a,e)=>a+sim.res[e].util,0);
+  h+=`<tr class="tot"><td>Mercado</td><td class="num">${fmt(tu)}</td><td class="num">${fmt(ti)}</td>
+    <td class="num">${fmt(tc/tu,2)}</td><td class="num">100%</td>
+    <td class="num">${fmt(100*EMPS.reduce((a,e)=>a+sim.res[e].ciclos
+      .reduce((b,x)=>b+x.servicio,0)/N,0)/EMPS.length,1)}%</td>
+    <td class="num">${fmt(tut*2)}</td>
+    <td class="num">${fmt(tut)}</td>
+    <td class="num">${fmt(100*tut/(EMPS.length*par.costos.capital),1)}%</td></tr>`;
+  $("tRes").innerHTML=h;
+  $("resNote").textContent="Precio medio efectivo por unidad: "+fmt(ti/tu,2)+
+    ". El costo objetivo del caso original es 31.61 por unidad. El retorno se calcula sobre el capital "+
+    "contable declarado en los parámetros, no es el ROE oficial del simulador.";
+}
+function pintarTrazabilidad(){
+  const f=[["Kappa por segmento","0.20 y 0.15","configurado",""],
+  ["Coeficiente y exponente de Presupuesto","0.7005 y 15","configurado",""],
+  ["Distribuidores por zona","10, 10, 8, 7, 7","configurado",""],
+  ["Impacto y límite de medios","tabla Medio-Segmentos","configurado",""],
+  ["Rotación del conocimiento","0.45 / 0.40 / 0.25 / 0.15","configurado",""],
+  ["Lealtad por fase","0.25 a 0.55","configurado",""],
+  ["Umbrales de fase","10/55/60 y 10/40/50","configurado",""],
+  ["Error base del índice","10","configurado",""],
+  ["Escalas de TV y radio","30.15, 13.61, 7.30, 9.02","estimado","R² 0.974 en 230 transiciones"],
+  ["Factores de límite f_g y f_b","0.6331 y 1.0645","estimado","ajuste sobre P7 a P11"],
+  ["Beta del factor Producto","0.078","estimado","MAE 1.45 puntos"],
+  ["Exponentes del Índice Total","cinco por segmento","estimado","R² 0.983 y 0.975"],
+  ["Material por unidad","12.17","derivado","precio de lote entre tamaño de lote"],
+  ["Conversión por unidad","19.44","derivado","costo de ventas menos material"],
+  ["Gasto fijo de administración","117,600","no identificado","no corresponde a ningún parámetro capturado"]];
+  $("tTraz").innerHTML=`<tr><th>Parámetro</th><th>Valor</th><th>Evidencia</th><th>Nota</th></tr>`+
+    f.map(r=>`<tr><td>${r[0]}</td><td class="num">${r[1]}</td>
+      <td><span class="tag${r[2]==="estimado"||r[2]==="no identificado"?" est":""}">${r[2]}</span></td>
+      <td style="text-align:left;font-size:12px;color:var(--ink-3)">${r[3]}</td></tr>`).join("");
+}
+let ultimo=null;
+function correr(){
+  leerParametros();
+  ultimo=simular();
+  pintarCadena(ultimo); pintarResultado(ultimo); dibujarGraficas(ultimo);
+}
+function cambiarPerfil(p){
+  perfil=p;
+  $("bOrig").setAttribute("aria-pressed",p==="original");
+  $("bMaq").setAttribute("aria-pressed",p==="maquila");
+  par=parDefault(); dec=decDefault();
+  pintarParametros(); pintarDecisiones(); correr();
+}
+function comparar(){
+  const guardaP=perfil, guardaPar=par, guardaDec=dec, filas=[];
+  for(const p of ["original","maquila"]){
+    perfil=p; par=parDefault(); dec=decDefault();
+    const s=simular();
+    const u=EMPS.reduce((a,e)=>a+s.res[e].unidades,0);
+    const i=EMPS.reduce((a,e)=>a+s.res[e].ingreso,0);
+    const ut=EMPS.reduce((a,e)=>a+s.res[e].util,0);
+    const roes=EMPS.map(e=>s.res[e].roe);
+    const unit=EMPS.reduce((a,e)=>a+s.res[e].cmv,0)/u;
+    const np=PERFILES[p].nper;
+    const trayUtil=[[0,0]], trayCuota=[];
+    let ac=0;
+    for(let c=1;c<=np;c++){
+      ac+=EMPS.reduce((a,e)=>a+s.res[e].ciclos[c-1].util,0);
+      trayUtil.push([c/np,ac]);
+      trayCuota.push([c/np,EMPS.reduce((a,e)=>a+s.res[e].ciclos[c-1].servicio,0)/EMPS.length]);
+    }
+    filas.push({p:PERFILES[p].nombre,trayUtil:trayUtil,trayCuota:trayCuota,
+      u:u,i:i,pu:i/u,unit:unit,marg:i/u-unit,ut:ut,
+      roe:ut/(EMPS.length*par.costos.capital),
+      roeP:100*ut/(EMPS.length*par.costos.capital),
+      disp:(Math.max.apply(null,roes)-Math.min.apply(null,roes))*100,
+      serv:100*EMPS.reduce((a,e)=>a+s.res[e].ciclos.reduce((b,x)=>b+x.servicio,0)
+        /PERFILES[p].nper,0)/EMPS.length});
+  }
+  perfil=guardaP; par=guardaPar; dec=guardaDec;
+  const dPct=(a,b)=>b? (100*(a-b)/b).toFixed(1)+"%" : "";
+  const dPP=(a,b)=>((a-b)>=0?"+":"")+(a-b).toFixed(1)+" pp";
+  $("tCmp").innerHTML=`<tr><th>Concepto</th><th>${filas[0].p}</th><th>${filas[1].p}</th><th>Diferencia</th></tr>`+
+   [["Unidades del año","u",0,"pct"],["Ingreso del año","i",0,"pct"],
+    ["Precio medio por unidad","pu",2,"pct"],["Costo por unidad","unit",2,"pct"],
+    ["Margen por unidad","marg",2,"pct"],["Utilidad del mercado","ut",0,"pct"],
+    ["Retorno del mercado, %","roeP",1,"pp"],
+    ["Nivel de servicio medio, %","serv",1,"pp"],
+    ["Dispersión del retorno entre equipos, pp","disp",1,"pp"]]
+   .map(([lab,k,dd,u])=>`<tr><td>${lab}</td><td class="num">${fmt(filas[0][k],dd)}</td>
+     <td class="num">${fmt(filas[1][k],dd)}</td><td class="num">${
+       u==="pp"? dPP(filas[1][k],filas[0][k]) : dPct(filas[1][k],filas[0][k])}</td></tr>`).join("");
+  const fee=filas[0].utEq; if(fee) $("cmpNote").dataset.fee=fee;
+  $("cmpNote").innerHTML="Los dos perfiles corren con sus decisiones por omisión, que son las reales de "+
+   "los cinco equipos. Lo que debe coincidir es el <b>agregado del mercado</b>: ingreso, costo por unidad, "+
+   "utilidad y retorno. Las unidades quedan por encima y el precio medio por debajo en la misma proporción, "+
+   "porque el perfil nuevo no incluye Oriente, que era la zona de precio más alto. "+
+   "El resultado de un equipo en particular <b>no es comparable</b>, porque sus decisiones históricas se "+
+   "tomaron para un mercado de cinco zonas y quien vendía fuerte en Oriente o Sur pierde al recortarlas. "+
+   "La última fila mide esa dispersión: es la distancia en puntos porcentuales entre el equipo de mejor y "+
+   "el de peor retorno. Que baje de 36,4 a 18,6 quiere decir que el perfil de un día reparte resultados "+
+   "más parejos y perdona más los errores, lo cual conviene tener presente al calibrar la dificultad.";
+
+  const caja=$("cmpChart"); caja.innerHTML="";
+  const maxU=Math.max(filas[0].ut,filas[1].ut)*1.08;
+  caja.appendChild(figura({paso:"=",titulo:"Utilidad acumulada del mercado",clase:"corrida",
+    xlab:"avance del año", leyenda:true,
+    xdom:[0,1], ydom:[0,maxU],
+    xticks:[{v:0,t:"inicio"},{v:0.5,t:"mitad"},{v:1,t:"cierre"}],
+    yticks:ticksLin(0,maxU,4,0),
+    series:[{n:filas[0].p+" (6 cuatrimestres)",c:PERF_COL.original,pts:filas[0].trayUtil},
+            {n:filas[1].p+" (3 cuatrimestres)",c:PERF_COL.maquila,pts:filas[1].trayUtil}],
+    tip:(s,i,p)=>`<b>${s.n}</b><br>al ${fmtn(100*p[0],0)}% del año<br>
+      utilidad acumulada ${fmtn(p[1])}`,
+    nota:"El eje horizontal es el avance del año, no el número de periodos, porque los dos perfiles recorren el mismo año con distinto número de ciclos. Si las dos curvas terminan juntas, los perfiles son equivalentes."}));
+  caja.appendChild(figura({paso:"=",titulo:"Nivel de servicio del mercado",clase:"corrida",
+    xlab:"avance del año", leyenda:true,
+    xdom:[0,1], ydom:[0.6,1.02],
+    xticks:[{v:0,t:"inicio"},{v:0.5,t:"mitad"},{v:1,t:"cierre"}],
+    yticks:[{v:0.7,t:"70%"},{v:0.85,t:"85%"},{v:1,t:"100%"}],
+    series:[{n:filas[0].p,c:PERF_COL.original,pts:filas[0].trayCuota},
+            {n:filas[1].p,c:PERF_COL.maquila,pts:filas[1].trayCuota}],
+    tip:(s,i,p)=>`<b>${s.n}</b><br>al ${fmtn(100*p[0],0)}% del año<br>
+      surtió el ${fmtn(100*p[1],1)}% de la demanda asignada`,
+    nota:"Mide si la restricción de capacidad muerde con la misma fuerza en los dos perfiles. En el original son cinco secciones; en el nuevo, la línea de empaque."}));
+}
+const PERF_COL={original:"#1f6f6b",maquila:"#5a4fcf"};
+/* plantillas */
+function descargar(){
+  const blob=new Blob([JSON.stringify({perfil:perfil,parametros:par,decisiones:dec},null,1)],
+    {type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="mezquite_"+perfil+".json"; a.click(); URL.revokeObjectURL(a.href);
+}
+function cargar(file){
+  const r=new FileReader();
+  r.onload=()=>{ try{
+      const j=JSON.parse(r.result);
+      if(j.perfil&&PERFILES[j.perfil]) perfil=j.perfil;
+      $("bOrig").setAttribute("aria-pressed",perfil==="original");
+      $("bMaq").setAttribute("aria-pressed",perfil==="maquila");
+      if(j.parametros) par=j.parametros;
+      if(j.decisiones) dec=j.decisiones;
+      pintarParametros(); pintarDecisiones(); correr();
+    }catch(e){ alert("El archivo no tiene el formato de la plantilla. Descarga una para ver la estructura."); }};
+  r.readAsText(file);
+}
+/* arranque */
+$("bOrig").onclick=()=>cambiarPerfil("original");
+$("bMaq").onclick=()=>cambiarPerfil("maquila");
+$("resetPar").onclick=()=>{par=parDefault();pintarParametros();correr();};
+$("run").onclick=correr;
+$("reset").onclick=()=>{dec=decDefault();pintarDecisiones();correr();};
+$("dl").onclick=descargar;
+$("upBtn").onclick=()=>$("up").click();
+$("up").onchange=e=>{ if(e.target.files[0]) cargar(e.target.files[0]); };
+$("cmp").onclick=comparar;
+["kA","kB","pa","pn","beta","ruido","escala","expA","expB"].forEach(id=>
+  $(id).addEventListener("input",correr));
+pintarTrazabilidad();
+cambiarPerfil("original");
+</script>
+</body>
+</html>

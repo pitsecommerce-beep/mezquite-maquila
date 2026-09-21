@@ -17,8 +17,28 @@ Corre el mismo motor comercial con dos configuraciones:
 | Operación | manufactura de 5 secciones | maquila más empaque propio |
 | Costo por unidad | 12.17 material + 19.44 conversión | 28.40 maquila + 3.20 empaque |
 
-Y grafica el comportamiento de los nueve modelos que corren por dentro: los cinco factores de la cuota,
-el índice Total, la trayectoria de cuota, el costo unitario y el nivel de servicio.
+Corriendo los dos con las decisiones reales de los cinco equipos, el agregado del mercado queda así:
+
+| Concepto | Original | Maquila | Diferencia |
+|---|---|---|---|
+| Ingreso del año | 57,753,322 | 57,638,754 | −0.2% |
+| Costo por unidad | 31.61 | 31.60 | 0.0% |
+| Utilidad del mercado | 6,257,189 | 6,233,560 | −0.4% |
+| Retorno sobre el capital | 83.4% | 83.1% | −0.4% |
+| Unidades del año | 683,122 | 728,313 | +6.6% |
+| Precio medio por unidad | 84.54 | 79.14 | −6.4% |
+
+Las dos últimas filas se compensan y no se pueden igualar a la vez: al renunciar a Oriente, que era la
+zona de precio más alto, el precio medio baja 6.4% y hacen falta 6.6% más unidades para el mismo ingreso.
+La calibración prioriza el ingreso, la utilidad y el costo unitario.
+
+El resultado de un equipo en particular no es comparable entre perfiles, porque sus decisiones históricas
+se tomaron para un mercado de cinco zonas. La fila de dispersión del retorno mide ese efecto.
+
+Y grafica los trece modelos que corren por dentro, numerados y agrupados según la cadena del motor
+comercial: entradas del motor (demanda y fase), las cinco calificaciones, el índice Total, el índice
+Final, la cuota, el nivel de servicio y el resultado. Cada gráfica trae leyenda, ejes etiquetados y
+tooltip al pasar el cursor, con el detalle del equipo, el cuatrimestre y el parámetro que la gobierna.
 
 ## Publicar en GitHub Pages
 

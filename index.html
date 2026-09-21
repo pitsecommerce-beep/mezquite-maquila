@@ -76,7 +76,7 @@ td.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
 tr.tot td{font-weight:600;border-top:1px solid var(--line);border-bottom:0}
 
-.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(288px,1fr));gap:16px}
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:16px}
 figure{margin:0;background:var(--card);border:1px solid var(--line);border-radius:3px;padding:14px}
 figcaption{font-size:12.5px;color:var(--ink-3);margin-top:8px;line-height:1.45}
 figure h3{margin-bottom:4px;color:var(--ink)}
@@ -87,6 +87,23 @@ svg{display:block;width:100%;height:auto;max-width:100%}
   border:1px solid var(--line);color:var(--ink-2);background:var(--surface)}
 .tag.est{border-color:var(--warn);color:var(--warn)}
 section{margin-top:30px}
+.tip{position:fixed;z-index:50;pointer-events:none;opacity:0;transition:opacity .12s;
+  background:var(--ink);color:#fff;font:400 12px/1.45 var(--sans);padding:7px 10px;
+  border-radius:3px;max-width:190px;box-shadow:0 2px 10px rgba(0,0,0,.18)}
+.tip b{font-weight:600}
+.tip .tmin{color:#b9c6c2;font-size:11px}
+.gtit{grid-column:1/-1;margin:14px 0 2px;padding-top:14px;border-top:1px solid var(--line)}
+.gtit:first-child{margin-top:0;padding-top:0;border-top:0}
+.gtit h3{font-size:15px;color:var(--ink);margin:0 0 4px}
+.gtit p{font-size:12.5px;color:var(--ink-3);margin:0;max-width:74ch;line-height:1.5}
+.fh{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
+.paso{font:600 11px var(--mono);color:var(--ink-3);border:1px solid var(--line);
+  border-radius:2px;padding:1px 5px;flex:none}
+figure h3{margin:0;font-size:13.5px}
+.leg{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px}
+.leg span{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--ink-2)}
+.leg i{width:10px;height:3px;border-radius:2px;flex:none}
+svg .hit{cursor:crosshair}
 .cycle{border:1px solid var(--line);border-radius:3px;padding:14px;margin-bottom:12px;background:var(--card)}
 .cycle > summary{cursor:pointer;font-weight:600;font-size:14px;list-style:none}
 .cycle > summary::-webkit-details-marker{display:none}
@@ -203,6 +220,7 @@ section{margin-top:30px}
     </div>
     <div class="panel"><div class="scroll"><table id="tCmp"></table></div>
       <p class="note" id="cmpNote" style="margin-top:10px"></p></div>
+    <div class="charts" id="cmpChart" style="margin-top:16px"></div>
   </section>
 
   <section>
@@ -325,9 +343,9 @@ const PERFILES={
   nombre:"Mezquite Maquila", color:"var(--maq)", zonas:ZONAS_M, nper:3, per0:7, agrupa:2,
   desc:"Maquila más empaque propio. Tres cuatrimestres, tres zonas, dos segmentos. Cada cuatrimestre acumula la demanda de dos del original, así que el volumen del año coincide.",
   escala:1.394,
-  costos:{maquila:28.40,empaque:3.20,otrosUnit:14.20,otrosFijo:279000,
+  costos:{maquila:28.40,empaque:3.20,otrosUnit:14.20,otrosFijo:453500,
           fijoAdmin:117600,vendedor:750,tv:3000,radio:300,
-          capacidad:44000,deprEmpaque:38000,impuesto:0.5,capital:1500000}
+          capacidad:52000,deprEmpaque:38000,impuesto:0.5,capital:1500000}
  }};
 let perfil="original";
 const P=()=>PERFILES[perfil];
@@ -483,6 +501,7 @@ function costear(rows){
       res[e].ciclos.push({ciclo:c,unidades:unidades,ingreso:ingreso,cmv:cmv,sga:sga,
         otros:otros,antes:antes,util:util,
         cuota:rs.reduce((a,r)=>a+r.cuota*r.mercado,0)/Math.max(1,rs.reduce((a,r)=>a+r.mercado,0)),
+        final:rs.reduce((a,r)=>a+r.final*r.mercado,0)/Math.max(1,rs.reduce((a,r)=>a+r.mercado,0)),
         servicio:demTot>0?unidades/demTot:1, unit:unit});
       res[e].unidades+=unidades; res[e].ingreso+=ingreso; res[e].cmv+=cmv;
       res[e].sga+=sga; res[e].otros=(res[e].otros||0)+otros; res[e].util+=util;
@@ -494,97 +513,256 @@ function costear(rows){
 }
 
 /* ============================================================ graficas */
-function chart(title,caption,draw,W=300,H=170){
+const COLS=["#1f6f6b","#b4632a","#5a4fcf","#2e7d32","#8b2f5f"];
+let TIP=null;
+function tipDiv(){
+  if(!TIP){ TIP=document.createElement("div"); TIP.className="tip"; document.body.appendChild(TIP); }
+  return TIP;
+}
+function fmtn(v,d){return (v==null||isNaN(v))?"":v.toLocaleString("es-MX",
+  {minimumFractionDigits:d||0,maximumFractionDigits:d||0});}
+
+/* cfg: {paso,titulo,nota,tipo,series,xdom,ydom,xticks,yticks,xlab,ylab,leyenda,tip} */
+function figura(cfg){
+  const W=340,H=208,pad={l:44,r:12,t:10,b:40};
+  const xs=cfg.xdom, ys=cfg.ydom;
+  const px=v=>pad.l+(v-xs[0])/(xs[1]-xs[0])*(W-pad.l-pad.r);
+  const py=v=>H-pad.b-(v-ys[0])/(ys[1]-ys[0])*(H-pad.t-pad.b);
+  let g="";
+  (cfg.yticks||[]).forEach(t=>{
+    g+=`<line x1="${pad.l}" y1="${py(t.v).toFixed(1)}" x2="${W-pad.r}" y2="${py(t.v).toFixed(1)}"
+      stroke="var(--line-2)" stroke-width="0.6"/>`;
+    g+=`<text x="${pad.l-6}" y="${(py(t.v)+3.2).toFixed(1)}" font-size="9" fill="var(--ink-3)"
+      text-anchor="end">${t.t}</text>`;});
+  (cfg.xticks||[]).forEach(t=>{
+    g+=`<text x="${px(t.v).toFixed(1)}" y="${H-pad.b+13}" font-size="9" fill="var(--ink-3)"
+      text-anchor="middle">${t.t}</text>`;});
+  if(cfg.tipo==="bar"){
+    const n=cfg.series[0].pts.length, gr=cfg.series.length;
+    const bw=(W-pad.l-pad.r)/n*0.72/gr;
+    cfg.series.forEach((s,k)=>s.pts.forEach((p,i)=>{
+      const cx=pad.l+(i+0.5)/n*(W-pad.l-pad.r)+(k-(gr-1)/2)*bw;
+      const y=py(p[1]);
+      g+=`<rect x="${(cx-bw/2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}"
+        height="${Math.max(0,H-pad.b-y).toFixed(1)}" fill="${s.c}" opacity="0.88"/>`;}));
+  }else{
+    cfg.series.forEach(s=>{
+      const d=s.pts.map((p,i)=>(i?"L":"M")+px(p[0]).toFixed(1)+" "+py(p[1]).toFixed(1)).join(" ");
+      g+=`<path d="${d}" fill="none" stroke="${s.c}" stroke-width="${s.w||1.7}"
+        ${s.dash?'stroke-dasharray="4 3"':""} stroke-linejoin="round"/>`;
+      if(s.pts.length<=8) s.pts.forEach(p=>{
+        g+=`<circle cx="${px(p[0]).toFixed(1)}" cy="${py(p[1]).toFixed(1)}" r="2.4" fill="${s.c}"/>`;});
+    });
+  }
   const f=document.createElement("figure");
-  const pad={l:34,r:8,t:8,b:22};
-  const g=[];
-  const ax=(x,y)=>[pad.l+x*(W-pad.l-pad.r), H-pad.b-y*(H-pad.t-pad.b)];
-  draw({ax:ax,line:(pts,col,dash)=>{
-      const d=pts.map((p,i)=>(i?"L":"M")+ax(p[0],p[1]).map(n=>n.toFixed(1)).join(" ")).join(" ");
-      g.push(`<path d="${d}" fill="none" stroke="${col||"var(--ink)"}" stroke-width="1.6"${dash?' stroke-dasharray="4 3"':""}/>`);},
-    bars:(vals,col)=>{const w=(W-pad.l-pad.r)/vals.length*0.62;
-      vals.forEach((v,i)=>{const [x,y]=ax((i+0.5)/vals.length,v);
-        g.push(`<rect x="${(x-w/2).toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${(H-pad.b-y).toFixed(1)}" fill="${col}" opacity="0.85"/>`);});},
-    txt:(x,y,s,anchor)=>{const [px,py]=ax(x,y);
-      g.push(`<text x="${px.toFixed(1)}" y="${py.toFixed(1)}" font-size="9.5" fill="var(--ink-3)" text-anchor="${anchor||"middle"}">${s}</text>`);},
-    yl:(v,s)=>{const [,py]=ax(0,v);
-      g.push(`<text x="${pad.l-5}" y="${(py+3).toFixed(1)}" font-size="9.5" fill="var(--ink-3)" text-anchor="end">${s}</text>`);}
+  f.innerHTML=
+    `<div class="fh"><span class="paso">${cfg.paso}</span><h3>${cfg.titulo}</h3></div>
+     <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${cfg.titulo}">
+       <line x1="${pad.l}" y1="${H-pad.b}" x2="${W-pad.r}" y2="${H-pad.b}" stroke="var(--line)" stroke-width="0.8"/>
+       <line x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${H-pad.b}" stroke="var(--line)" stroke-width="0.8"/>
+       ${g}
+       <text x="${(pad.l+(W-pad.r))/2}" y="${H-6}" font-size="9" fill="var(--ink-3)"
+         text-anchor="middle">${cfg.xlab||""}</text>
+       <rect class="hit" x="${pad.l}" y="${pad.t}" width="${W-pad.l-pad.r}" height="${H-pad.t-pad.b}" fill="transparent"/>
+     </svg>
+     ${cfg.leyenda?`<div class="leg">${cfg.series.filter(s=>s.n).map(s=>
+        `<span><i style="background:${s.c}"></i>${s.n}</span>`).join("")}</div>`:""}
+     <figcaption>${cfg.nota||""}</figcaption>`;
+  // tooltip
+  const svg=f.querySelector("svg");
+  svg.addEventListener("mousemove",ev=>{
+    const r=svg.getBoundingClientRect();
+    const vx=(ev.clientX-r.left)/r.width*W;
+    if(vx<pad.l||vx>W-pad.r){ tipDiv().style.opacity=0; return; }
+    const val=xs[0]+(vx-pad.l)/(W-pad.l-pad.r)*(xs[1]-xs[0]);
+    let mejor=null;
+    cfg.series.forEach(s=>s.pts.forEach((p,i)=>{
+      const d=Math.abs(p[0]-val);
+      if(!mejor||d<mejor.d) mejor={d:d,p:p,s:s,i:i};}));
+    if(!mejor){ tipDiv().style.opacity=0; return; }
+    const t=tipDiv();
+    t.innerHTML=cfg.tip? cfg.tip(mejor.s,mejor.i,mejor.p) :
+      `<b>${mejor.s.n||""}</b>${mejor.s.n?"<br>":""}${fmtn(mejor.p[1],2)}`;
+    t.style.opacity=1;
+    t.style.left=Math.min(window.innerWidth-190,ev.clientX+12)+"px";
+    t.style.top=(ev.clientY-10)+"px";
   });
-  f.innerHTML=`<h3>${title}</h3>
-   <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${title}">
-    <line x1="${pad.l}" y1="${H-pad.b}" x2="${W-pad.r}" y2="${H-pad.b}" stroke="var(--line)" stroke-width="0.8"/>
-    <line x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${H-pad.b}" stroke="var(--line)" stroke-width="0.8"/>
-    ${g.join("")}</svg><figcaption>${caption}</figcaption>`;
+  svg.addEventListener("mouseleave",()=>{ if(TIP) TIP.style.opacity=0; });
   return f;
 }
+
+function ticksLin(a,b,n,d){
+  const out=[]; for(let i=0;i<=n;i++){const v=a+(b-a)*i/n; out.push({v:v,t:fmtn(v,d)});}
+  return out;
+}
 function dibujarGraficas(sim){
-  const c=document.getElementById("charts"); c.innerHTML="";
-  const col=P().color;
+  const cont=document.getElementById("charts"); cont.innerHTML="";
+  const N=P().nper, ciclos=[]; for(let c=1;c<=N;c++) ciclos.push(c);
+  const xt=ciclos.map(c=>({v:c,t:"C"+c}));
+  const grupo=(t,d)=>{const h=document.createElement("div"); h.className="gtit";
+    h.innerHTML=`<h3>${t}</h3><p>${d}</p>`; cont.appendChild(h);};
 
-  c.appendChild(chart("Factor Precio","Recta centrada en 50. Cobrar el promedio da 50 puntos. El segmento Bajo es 4/3 más sensible porque su kappa es menor.",
-    o=>{o.yl(0,"0");o.yl(1,"100");
-      for(const s of ["Alto","Bajo"]){const pts=[];
-        for(let i=0;i<=40;i++){const r=0.7+i*0.6/40; pts.push([i/40,fPrecio(r*100,100,s)/100]);}
-        o.line(pts,s==="Alto"?col:"var(--ink-3)");}
-      o.txt(0.5,-0.12,"precio relativo al promedio, 0.7 a 1.3");}));
+  /* ---------- entradas del motor ---------- */
+  grupo("Entradas del motor","La demanda la fija el instructor y el equipo no la mueve. La fase sale de la penetración acumulada y condiciona tres cosas: lo que el segmento desea, la fuga de la publicidad y la inercia de la cuota.");
 
-  c.appendChild(chart("Factor Presupuesto","Muro, no pendiente. Plana mientras el precio esté bajo el techo del segmento y se derrumba al acercarse. Es el factor con más peso.",
-    o=>{o.yl(0,"0");o.yl(1,"100");const pts=[];
-      for(let i=0;i<=60;i++){const r=0.6+i*0.7/60; pts.push([i/60,fPresupuesto(r*100,100)/100]);}
-      o.line(pts,col); o.txt(0.5,-0.12,"precio sobre el límite, 0.6 a 1.3");}));
+  const zs=[]; P().zonas.forEach(z=>SEGS.forEach(s=>zs.push([z,s])));
+  cont.appendChild(figura({paso:"0",titulo:"Demanda del mercado por cuatrimestre",
+    tipo:"bar", xlab:"cuatrimestre", leyenda:true,
+    xdom:[0.5,N+0.5], ydom:[0,Math.max.apply(null,zs.map(([z,s])=>
+      Math.max.apply(null,ciclos.map(c=>demanda(c,z,s).cant*demanda(c,z,s).dop/100*5))))*1.05],
+    xticks:xt, yticks:ticksLin(0,Math.max.apply(null,zs.map(([z,s])=>
+      Math.max.apply(null,ciclos.map(c=>demanda(c,z,s).cant*demanda(c,z,s).dop/100*5)))),3),
+    series:P().zonas.map((z,k)=>({n:z,c:COLS[k],pts:ciclos.map(c=>
+      [c,SEGS.reduce((a,s)=>a+demanda(c,z,s).cant*demanda(c,z,s).dop/100*5,0)])})),
+    tip:(s,i,p)=>`<b>${s.n}, cuatrimestre ${p[0]}</b><br>${fmtn(p[1])} unidades de demanda<br>
+      <span class="tmin">suma de los dos segmentos</span>`,
+    nota:"Unidades a repartir entre los cinco competidores. Suma de los segmentos Alto y Bajo."}));
 
-  c.appendChild(chart("Factor Promoción","Satura pronto: al igualar los distribuidores de la zona ya lleva 63 puntos. Con exponente 0.024 su efecto en la cuota es casi nulo.",
-    o=>{o.yl(0,"0");o.yl(1,"100");const pts=[];
-      for(let i=0;i<=40;i++){const v=i*2.5/40*10; pts.push([i/40,fPromocion(v,10)/100]);}
-      o.line(pts,col); o.txt(0.5,-0.12,"vendedores sobre distribuidores, 0 a 2.5");}));
+  const fnames=["Lanzamiento","Crecimiento","Madurez","Hipermadurez"];
+  cont.appendChild(figura({paso:"0",titulo:"Fase de cada mercado",
+    tipo:"line", xlab:"cuatrimestre", leyenda:true,
+    xdom:[1,N], ydom:[-0.2,3.2], xticks:xt,
+    yticks:[0,1,2,3].map(v=>({v:v,t:["Lanz.","Crec.","Madurez","Hiperm."][v]})),
+    series:zs.map(([z,s],k)=>({n:z+" "+s,c:COLS[k%5],w:k<zs.length/2?1.9:1.2,
+      dash:s==="Bajo", pts:ciclos.map(c=>[c,fase(z,s,c)])})),
+    tip:(s,i,p)=>`<b>${s.n}, cuatrimestre ${p[0]}</b><br>${fnames[p[1]]}<br>
+      <span class="tmin">rotación ${ROT[p[1]]} · lealtad ${LEAL[s.n.split(" ")[1]][p[1]]}</span>`,
+    nota:"Línea continua para el segmento Alto y punteada para el Bajo. Los umbrales de penetración difieren entre segmentos."}));
 
-  c.appendChild(chart("Conocimiento de marca","Acervo con fuga. La línea continua acumula con compra constante; la punteada es lo que queda si se deja de anunciar.",
-    o=>{o.yl(0,"0");o.yl(1,"100");
-      let a=20; const p1=[[0,0.2]];
-      for(let t=1;t<=12;t++){a=fPublicidad(a,1,"Alto",35,80,20,85); p1.push([t/12,Math.min(a,100)/100]);}
-      let b=80; const p2=[[0,0.8]];
-      for(let t=1;t<=12;t++){b=fPublicidad(b,1,"Alto",0,80,0,85); p2.push([t/12,b/100]);}
-      o.line(p1,col); o.line(p2,"var(--ink-3)",true);
-      o.txt(0.5,-0.12,"cuatrimestres");}));
+  /* ---------- las cinco calificaciones ---------- */
+  grupo("Las cinco calificaciones, de 0 a 100","Se calculan en paralelo, no en cadena. Cada curva muestra la forma del modelo con los parámetros cargados. El peso de cada factor está en el exponente del índice Total.");
 
-  c.appendChild(chart("Factor Producto","Recta que se aplana en el valor deseado del segmento. Pasado ese punto, comprar más mejoras no da ni un punto.",
-    o=>{o.yl(0,"0");o.yl(1,"100");
-      for(const s of ["Alto","Bajo"]){const pts=[];
-        for(let n=0;n<=14;n++) pts.push([n/14,fProducto(n,1,s)/100]);
-        o.line(pts,s==="Alto"?col:"var(--ink-3)");}
-      o.txt(0.5,-0.12,"mejoras compradas, 0 a 14");}));
+  const gA=par.expA, gB=par.expB;
+  cont.appendChild(figura({paso:"1",titulo:"Precio",
+    xlab:"precio propio sobre el promedio de los activos", leyenda:true,
+    xdom:[0.70,1.30], ydom:[0,100], xticks:ticksLin(0.7,1.3,3,2), yticks:ticksLin(0,100,4),
+    series:["Alto","Bajo"].map((s,k)=>({n:"Segmento "+s,c:COLS[k],
+      pts:Array.from({length:61},(_,i)=>{const r=0.70+i*0.01; return [r,fPrecio(r*100,100,s)];})})),
+    tip:(s,i,p)=>`<b>${s.n}</b><br>precio ${fmtn(100*p[0],1)}% del promedio<br>
+      calificación ${fmtn(p[1],1)}<br><span class="tmin">exponente ${s.n.indexOf("Alto")>0?gA[0]:gB[0]}</span>`,
+    nota:"Recta centrada en 50. Cobrar el promedio da 50 puntos. Kappa "+par.kA+" en Alto y "+par.kB+" en Bajo: el segmento Bajo es más sensible."}));
 
-  c.appendChild(chart("Índice Total","Cobb-Douglas. Se mueve un solo factor de 0 a 100 dejando los otros en 50. La pendiente de cada curva es su exponente.",
-    o=>{o.yl(0,"0");o.yl(1,"máx");
-      const nm=["precio","presup","promo","public","produc"];
-      let mx=0; const series=[];
-      for(let k=0;k<5;k++){const pts=[];
-        for(let i=0;i<=20;i++){const c2=[50,50,50,50,50]; c2[k]=i*5;
-          const v=indice(c2,"Alto"); mx=Math.max(mx,v); pts.push([i/20,v]);}
-        series.push(pts);}
-      series.forEach((pts,k)=>o.line(pts.map(p=>[p[0],p[1]/mx]),
-        k===1?col:(k===4?"var(--maq)":"var(--ink-3)")));
-      o.txt(0.5,-0.12,"calificación del factor, 0 a 100");}));
+  cont.appendChild(figura({paso:"2",titulo:"Presupuesto",
+    xlab:"precio sobre el límite del segmento", leyenda:false,
+    xdom:[0.60,1.30], ydom:[0,100], xticks:ticksLin(0.6,1.3,3,2), yticks:ticksLin(0,100,4),
+    series:[{n:"",c:COLS[0],pts:Array.from({length:71},(_,i)=>{const r=0.60+i*0.01;
+      return [r,fPresupuesto(r*100,100)];})}],
+    tip:(s,i,p)=>`<b>Presupuesto</b><br>precio al ${fmtn(100*p[0],0)}% del límite<br>
+      calificación ${fmtn(p[1],1)}<br><span class="tmin">exponentes ${gA[1]} en Alto y ${gB[1]} en Bajo</span>`,
+    nota:"Muro, no pendiente. Plana mientras el precio esté bajo el techo y se derrumba al acercarse. Es el factor con más peso del motor."}));
+
+  cont.appendChild(figura({paso:"3",titulo:"Promoción",
+    xlab:"vendedores sobre distribuidores de la zona", leyenda:false,
+    xdom:[0,2.5], ydom:[0,100], xticks:ticksLin(0,2.5,5,1), yticks:ticksLin(0,100,4),
+    series:[{n:"",c:COLS[0],pts:Array.from({length:51},(_,i)=>{const r=i*0.05;
+      return [r,fPromocion(r*10,10)];})}],
+    tip:(s,i,p)=>`<b>Promoción</b><br>${fmtn(p[0],2)} vendedores por distribuidor<br>
+      calificación ${fmtn(p[1],1)}<br><span class="tmin">exponentes ${gA[2]} en Alto y ${gB[2]} en Bajo</span>`,
+    nota:"Satura pronto: al igualar los distribuidores ya lleva 63 puntos. Con exponente "+gA[2]+" su efecto en la cuota es casi nulo."}));
+
+  cont.appendChild(figura({paso:"4",titulo:"Publicidad y conocimiento de marca",
+    xlab:"cuatrimestres", leyenda:true,
+    xdom:[0,12], ydom:[0,110], xticks:ticksLin(0,12,4), yticks:ticksLin(0,110,4),
+    series:[
+      {n:"Compra sostenida",c:COLS[0],pts:(()=>{let a=20;const o=[[0,20]];
+        for(let t=1;t<=12;t++){a=fPublicidad(a,1,"Alto",35,80,20,85);o.push([t,Math.min(a,110)]);}return o;})()},
+      {n:"Sin anunciar",c:COLS[1],dash:true,pts:(()=>{let b=80;const o=[[0,80]];
+        for(let t=1;t<=12;t++){b=fPublicidad(b,1,"Alto",0,80,0,85);o.push([t,b]);}return o;})()}],
+    tip:(s,i,p)=>`<b>${s.n}</b><br>cuatrimestre ${p[0]}<br>conocimiento ${fmtn(p[1],1)}<br>
+      <span class="tmin">fuga del ${100*ROT[1]}% por periodo en crecimiento</span>`,
+    nota:"Acervo con fuga. Se acumula con lo que compras y se erosiona si dejas de anunciar. La fuga depende de la fase."}));
+
+  cont.appendChild(figura({paso:"5",titulo:"Producto",
+    xlab:"mejoras compradas del catálogo", leyenda:true,
+    xdom:[0,14], ydom:[0,100], xticks:ticksLin(0,14,7), yticks:ticksLin(0,100,4),
+    series:["Alto","Bajo"].map((s,k)=>({n:"Segmento "+s,c:COLS[k],
+      pts:Array.from({length:15},(_,n)=>[n,fProducto(n,1,s)])})),
+    tip:(s,i,p)=>`<b>${s.n}</b><br>${p[0]} mejoras compradas<br>calificación ${fmtn(p[1],1)}<br>
+      <span class="tmin">${p[0]>0?"última: "+MEJORAS[p[0]-1][0]:"sin mejoras"}</span>`,
+    nota:"Recta que se aplana en el valor deseado del segmento. Pasado ese punto, comprar más mejoras no aporta nada."}));
+
+  /* ---------- indice y cuota ---------- */
+  grupo("De las calificaciones a la cuota","Las cinco notas se multiplican elevadas a su exponente, el resultado se normaliza a que los cinco competidores sumen 500 y se mezcla con la cuota real del periodo anterior.");
+
+  const nm=["Precio","Presupuesto","Promoción","Publicidad","Producto"];
+  let mx=0; const sens=[];
+  for(let k=0;k<5;k++){ const pts=[];
+    for(let i=0;i<=20;i++){ const c=[50,50,50,50,50]; c[k]=i*5;
+      const v=indice(c,"Alto"); mx=Math.max(mx,v); pts.push([i*5,v]); }
+    sens.push(pts); }
+  cont.appendChild(figura({paso:"6",titulo:"Índice Total: peso de cada factor",
+    xlab:"calificación del factor que se mueve", leyenda:true,
+    xdom:[0,100], ydom:[0,1.05], xticks:ticksLin(0,100,4),
+    yticks:[{v:0,t:"0"},{v:1,t:"máx"}],
+    series:sens.map((pts,k)=>({n:nm[k],c:COLS[k],pts:pts.map(p=>[p[0],p[1]/mx])})),
+    tip:(s,i,p)=>`<b>${s.n} = ${fmtn(p[0],0)}</b><br>los otros cuatro factores en 50<br>
+      índice ${fmtn(100*p[1],1)}% del máximo<br>
+      <span class="tmin">exponente ${gA[nm.indexOf(s.n)]} en Alto</span>`,
+    nota:"Se mueve un factor y se dejan los otros cuatro en 50. La pendiente de cada curva es su exponente: Presupuesto y Producto dominan."}));
 
   if(sim){
-    const cu=EMPS.map(e=>sim.res[e].ciclos.map(x=>x.cuota));
-    c.appendChild(chart("Cuota por cuatrimestre","Trayectoria de los cinco equipos con las decisiones cargadas. La memoria del mercado hace que las curvas se separen despacio.",
-      o=>{o.yl(0,"0");o.yl(1,"40%");
-        cu.forEach((s,i)=>o.line(s.map((v,j)=>[s.length>1?j/(s.length-1):0,v/40]),
-          i===0?col:"var(--ink-3)"));
-        o.txt(0.5,-0.12,"cuatrimestre");}));
-    const un=EMPS.map(e=>sim.res[e].costoUnit);
-    c.appendChild(chart("Costo por unidad","Los cinco equipos. La línea punteada es el costo del caso original, 31.61, que es el ancla de equivalencia.",
-      o=>{const mx=Math.max(40,...un); o.yl(0,"0");o.yl(1,mx.toFixed(0));
-        o.bars(un.map(v=>v/mx),col);
-        o.line([[0,31.61/mx],[1,31.61/mx]],"var(--warn)",true);
-        o.txt(0.5,-0.12,"ECO · DUST · APEX · COCA · TEKA");}));
-    const se=EMPS.map(e=>sim.res[e].ciclos.map(x=>x.servicio));
-    c.appendChild(chart("Nivel de servicio","Unidades surtidas sobre demanda asignada. Cuando baja de 1, la capacidad no alcanzó y la cuota del ciclo siguiente lo paga.",
-      o=>{o.yl(0,"0");o.yl(1,"100%");
-        se.forEach((s,i)=>o.line(s.map((v,j)=>[s.length>1?j/(s.length-1):0,Math.min(v,1)]),
-          i===0?col:"var(--ink-3)"));
-        o.txt(0.5,-0.12,"cuatrimestre");}));
+    cont.appendChild(figura({paso:"7",titulo:"Índice Final: atractivo antes de la memoria",
+      xlab:"cuatrimestre", leyenda:true,
+      xdom:[1,N], ydom:[0,Math.max(140,Math.ceil(Math.max.apply(null,EMPS.map(e=>
+        Math.max.apply(null,sim.res[e].ciclos.map(x=>x.final))))/20)*20)],
+      xticks:xt, yticks:ticksLin(0,140,4),
+      series:EMPS.map((e,k)=>({n:e,c:COLS[k],pts:sim.res[e].ciclos.map(x=>[x.ciclo,x.final])})),
+      tip:(s,i,p)=>{const x=sim.res[s.n].ciclos[i];
+        return `<b>${s.n}</b><br>cuatrimestre ${p[0]}<br>índice Final ${fmtn(p[1],1)}<br>
+        <span class="tmin">atractivo puro: ${fmtn(p[1]/5,2)}% de cuota<br>
+        con memoria queda en ${fmtn(x.cuota,2)}%</span>`;},
+      nota:"Los cinco índices suman 500 en cada mercado, así que 100 es la empresa promedio. Comparar esta gráfica con la siguiente muestra cuánto amortigua la memoria del mercado."}));
+
+    cont.appendChild(figura({paso:"8",titulo:"Cuota de mercado por equipo",
+      xlab:"cuatrimestre", leyenda:true,
+      xdom:[1,N], ydom:[0,Math.max(30,Math.ceil(Math.max.apply(null,EMPS.map(e=>
+        Math.max.apply(null,sim.res[e].ciclos.map(x=>x.cuota))))/5)*5)],
+      xticks:xt, yticks:ticksLin(0,30,3),
+      series:EMPS.map((e,k)=>({n:e,c:COLS[k],pts:sim.res[e].ciclos.map(x=>[x.ciclo,x.cuota])})),
+      tip:(s,i,p)=>`<b>${s.n}</b><br>cuatrimestre ${p[0]}<br>cuota ${fmtn(p[1],2)}%<br>
+        <span class="tmin">${fmtn(sim.res[s.n].ciclos[i].unidades)} unidades vendidas</span>`,
+      nota:"Cuota media ponderada por el tamaño de cada mercado. La memoria del mercado hace que las curvas se separen despacio."}));
+  }
+
+  /* ---------- operacion y resultado ---------- */
+  if(sim){
+    grupo("De la cuota al resultado","La cuota se convierte en demanda esperada; las ventas son el mínimo entre esa demanda y lo que la capacidad permitió surtir. Lo que no se surte cede cuota al periodo siguiente.");
+
+    cont.appendChild(figura({paso:"9",titulo:"Nivel de servicio por equipo",
+      xlab:"cuatrimestre", leyenda:true,
+      xdom:[1,N], ydom:[0.4,1.02], xticks:xt,
+      yticks:[{v:0.5,t:"50%"},{v:0.75,t:"75%"},{v:1,t:"100%"}],
+      series:EMPS.map((e,k)=>({n:e,c:COLS[k],
+        pts:sim.res[e].ciclos.map(x=>[x.ciclo,Math.min(x.servicio,1.02)])})),
+      tip:(s,i,p)=>{const x=sim.res[s.n].ciclos[i];
+        return `<b>${s.n}</b><br>cuatrimestre ${p[0]}<br>surtió el ${fmtn(100*x.servicio,1)}%<br>
+        <span class="tmin">${fmtn(x.unidades)} vendidas de la demanda asignada</span>`;},
+      nota:"Cuando baja de 100%, la capacidad no alcanzó. El castigo aparece en la cuota del cuatrimestre siguiente."}));
+
+    const unit=EMPS.map(e=>sim.res[e].costoUnit);
+    cont.appendChild(figura({paso:"10",titulo:"Costo por unidad",
+      tipo:"bar", xlab:"", leyenda:false,
+      xdom:[0.5,5.5], ydom:[0,Math.max(40,Math.max.apply(null,unit)*1.15)],
+      xticks:EMPS.map((e,k)=>({v:k+1,t:e.slice(0,4)})),
+      yticks:ticksLin(0,Math.max(40,Math.max.apply(null,unit)*1.15),4,0),
+      series:[{n:"",c:COLS[0],pts:unit.map((v,k)=>[k+1,v])}],
+      tip:(s,i,p)=>`<b>${EMPS[i]}</b><br>costo por unidad ${fmtn(p[1],2)}<br>
+        <span class="tmin">objetivo del caso original 31,61</span>`,
+      nota:"El objetivo de equivalencia es 31,61 por unidad, que es el costo medido del caso original."}));
+
+    cont.appendChild(figura({paso:"10",titulo:"Utilidad acumulada por equipo",
+      xlab:"cuatrimestre", leyenda:true,
+      xdom:[1,N], ydom:[0,Math.max.apply(null,EMPS.map(e=>{let a=0;
+        return Math.max.apply(null,sim.res[e].ciclos.map(x=>a+=x.util));}))*1.1],
+      xticks:xt,
+      yticks:ticksLin(0,Math.max.apply(null,EMPS.map(e=>{let a=0;
+        return Math.max.apply(null,sim.res[e].ciclos.map(x=>a+=x.util));})),3,0),
+      series:EMPS.map((e,k)=>{let a=0;
+        return {n:e,c:COLS[k],pts:sim.res[e].ciclos.map(x=>[x.ciclo,a+=x.util])};}),
+      tip:(s,i,p)=>`<b>${s.n}</b><br>al cierre del cuatrimestre ${p[0]}<br>
+        utilidad acumulada ${fmtn(p[1])}<br>
+        <span class="tmin">del periodo: ${fmtn(sim.res[s.n].ciclos[i].util)}</span>`,
+      nota:"Utilidad después de impuestos, acumulada en el año. Es la base del retorno sobre el capital."}));
   }
 }
 
@@ -694,9 +872,15 @@ function pintarResultado(sim){
   }
   const tu=EMPS.reduce((a,e)=>a+sim.res[e].unidades,0);
   const ti=EMPS.reduce((a,e)=>a+sim.res[e].ingreso,0);
+  const tc=EMPS.reduce((a,e)=>a+sim.res[e].cmv,0);
+  const tut=EMPS.reduce((a,e)=>a+sim.res[e].util,0);
   h+=`<tr class="tot"><td>Mercado</td><td class="num">${fmt(tu)}</td><td class="num">${fmt(ti)}</td>
-    <td class="num">${fmt(ti/tu,2)}</td><td class="num">100%</td><td></td><td></td>
-    <td class="num">${fmt(EMPS.reduce((a,e)=>a+sim.res[e].util,0))}</td><td></td></tr>`;
+    <td class="num">${fmt(tc/tu,2)}</td><td class="num">100%</td>
+    <td class="num">${fmt(100*EMPS.reduce((a,e)=>a+sim.res[e].ciclos
+      .reduce((b,x)=>b+x.servicio,0)/N,0)/EMPS.length,1)}%</td>
+    <td class="num">${fmt(tut*2)}</td>
+    <td class="num">${fmt(tut)}</td>
+    <td class="num">${fmt(100*tut/(EMPS.length*par.costos.capital),1)}%</td></tr>`;
   $("tRes").innerHTML=h;
   $("resNote").textContent="Precio medio efectivo por unidad: "+fmt(ti/tu,2)+
     ". El costo objetivo del caso original es 31.61 por unidad. El retorno se calcula sobre el capital "+
@@ -744,23 +928,65 @@ function comparar(){
     const u=EMPS.reduce((a,e)=>a+s.res[e].unidades,0);
     const i=EMPS.reduce((a,e)=>a+s.res[e].ingreso,0);
     const ut=EMPS.reduce((a,e)=>a+s.res[e].util,0);
-    filas.push({p:PERFILES[p].nombre,u:u,i:i,pu:i/u,cu:s.res[EMPS[0]].ciclos
-      .reduce((a,x)=>a+x.cuota,0)/PERFILES[p].nper, unit:s.res[EMPS[0]].costoUnit, ut:ut,
-      roe:s.res[EMPS[0]].roe});
+    const roes=EMPS.map(e=>s.res[e].roe);
+    const unit=EMPS.reduce((a,e)=>a+s.res[e].cmv,0)/u;
+    const np=PERFILES[p].nper;
+    const trayUtil=[[0,0]], trayCuota=[];
+    let ac=0;
+    for(let c=1;c<=np;c++){
+      ac+=EMPS.reduce((a,e)=>a+s.res[e].ciclos[c-1].util,0);
+      trayUtil.push([c/np,ac]);
+      trayCuota.push([c/np,EMPS.reduce((a,e)=>a+s.res[e].ciclos[c-1].servicio,0)/EMPS.length]);
+    }
+    filas.push({p:PERFILES[p].nombre,trayUtil:trayUtil,trayCuota:trayCuota,
+      u:u,i:i,pu:i/u,unit:unit,marg:i/u-unit,ut:ut,
+      roe:ut/(EMPS.length*par.costos.capital),
+      disp:(Math.max.apply(null,roes)-Math.min.apply(null,roes))*100,
+      serv:100*EMPS.reduce((a,e)=>a+s.res[e].ciclos.reduce((b,x)=>b+x.servicio,0)
+        /PERFILES[p].nper,0)/EMPS.length});
   }
   perfil=guardaP; par=guardaPar; dec=guardaDec;
   const d=(a,b)=>b? (100*(a-b)/b).toFixed(1)+"%" : "";
   $("tCmp").innerHTML=`<tr><th>Concepto</th><th>${filas[0].p}</th><th>${filas[1].p}</th><th>Diferencia</th></tr>`+
    [["Unidades del año","u",0],["Ingreso del año","i",0],["Precio medio por unidad","pu",2],
-    ["Cuota media del equipo 1","cu",1],["Costo por unidad","unit",2],
-    ["Utilidad del mercado","ut",0],["ROE del equipo 1","roe",3]]
+    ["Costo por unidad","unit",2],["Margen por unidad","marg",2],
+    ["Utilidad del mercado","ut",0],["Retorno del mercado","roe",3],
+    ["Nivel de servicio medio","serv",1],["Dispersión del retorno, pp","disp",1]]
    .map(([lab,k,dd])=>`<tr><td>${lab}</td><td class="num">${fmt(filas[0][k],dd)}</td>
      <td class="num">${fmt(filas[1][k],dd)}</td><td class="num">${d(filas[1][k],filas[0][k])}</td></tr>`).join("");
   const fee=filas[0].utEq; if(fee) $("cmpNote").dataset.fee=fee;
-  $("cmpNote").textContent="Los dos perfiles corren con sus decisiones por omisión, que son las reales de "+
-   "los equipos. Para que sean equivalentes, el precio medio por unidad y el costo por unidad deben quedar "+
-   "cerca; las unidades del año deben coincidir porque la demanda del perfil nuevo acumula dos periodos.";
+  $("cmpNote").innerHTML="Los dos perfiles corren con sus decisiones por omisión, que son las reales de "+
+   "los cinco equipos. Lo que debe coincidir es el <b>agregado del mercado</b>: ingreso, costo por unidad, "+
+   "utilidad y retorno. Las unidades quedan por encima y el precio medio por debajo en la misma proporción, "+
+   "porque el perfil nuevo no incluye Oriente, que era la zona de precio más alto. "+
+   "El resultado de un equipo en particular <b>no es comparable</b>: sus decisiones históricas se tomaron "+
+   "para un mercado de cinco zonas, así que quien vendía fuerte en Oriente o Sur pierde al recortarlas. "+
+   "La dispersión del retorno mide eso.";
+
+  const caja=$("cmpChart"); caja.innerHTML="";
+  const maxU=Math.max(filas[0].ut,filas[1].ut)*1.08;
+  caja.appendChild(figura({paso:"=",titulo:"Utilidad acumulada del mercado",
+    xlab:"avance del año", leyenda:true,
+    xdom:[0,1], ydom:[0,maxU],
+    xticks:[{v:0,t:"inicio"},{v:0.5,t:"mitad"},{v:1,t:"cierre"}],
+    yticks:ticksLin(0,maxU,4,0),
+    series:[{n:filas[0].p+" (6 cuatrimestres)",c:PERF_COL.original,pts:filas[0].trayUtil},
+            {n:filas[1].p+" (3 cuatrimestres)",c:PERF_COL.maquila,pts:filas[1].trayUtil}],
+    tip:(s,i,p)=>`<b>${s.n}</b><br>al ${fmtn(100*p[0],0)}% del año<br>
+      utilidad acumulada ${fmtn(p[1])}`,
+    nota:"El eje horizontal es el avance del año, no el número de periodos, porque los dos perfiles recorren el mismo año con distinto número de ciclos. Si las dos curvas terminan juntas, los perfiles son equivalentes."}));
+  caja.appendChild(figura({paso:"=",titulo:"Nivel de servicio del mercado",
+    xlab:"avance del año", leyenda:true,
+    xdom:[0,1], ydom:[0.6,1.02],
+    xticks:[{v:0,t:"inicio"},{v:0.5,t:"mitad"},{v:1,t:"cierre"}],
+    yticks:[{v:0.7,t:"70%"},{v:0.85,t:"85%"},{v:1,t:"100%"}],
+    series:[{n:filas[0].p,c:PERF_COL.original,pts:filas[0].trayCuota},
+            {n:filas[1].p,c:PERF_COL.maquila,pts:filas[1].trayCuota}],
+    tip:(s,i,p)=>`<b>${s.n}</b><br>al ${fmtn(100*p[0],0)}% del año<br>
+      surtió el ${fmtn(100*p[1],1)}% de la demanda asignada`,
+    nota:"Mide si la restricción de capacidad muerde con la misma fuerza en los dos perfiles. En el original son cinco secciones; en el nuevo, la línea de empaque."}));
 }
+const PERF_COL={original:"#1f6f6b",maquila:"#5a4fcf"};
 /* plantillas */
 function descargar(){
   const blob=new Blob([JSON.stringify({perfil:perfil,parametros:par,decisiones:dec},null,1)],
